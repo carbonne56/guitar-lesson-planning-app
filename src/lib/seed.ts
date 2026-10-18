@@ -1,0 +1,177 @@
+import type { AppState } from "./model";
+
+// Realistic mock data demonstrating the conceptual relationships.
+export function createSeed(): AppState {
+  return {
+    version: 1,
+    students: [
+      {
+        id: "student-001",
+        name: "Maria Silva",
+        birthDate: "2012-04-15",
+        active: true,
+        schedule: { weekday: 3, time: "16:00", duration: 45 },
+      },
+      { id: "student-002", name: "João Costa", birthDate: "2011-09-22", active: true, schedule: null },
+      {
+        id: "student-003",
+        name: "Ana Martins",
+        birthDate: "2013-01-10",
+        active: false,
+        schedule: { weekday: 5, time: "17:00", duration: 30 },
+      },
+      {
+        id: "student-004",
+        name: "Tomás Ferreira",
+        birthDate: "2014-06-03",
+        active: true,
+        schedule: { weekday: 1, time: "18:00", duration: 30 },
+      },
+    ],
+    library: [
+      { id: "library-001", name: "Arpejo p-i-m-a", category: "Objetivos técnicos" },
+      { id: "library-002", name: "Romance Anónimo", category: "Peças" },
+      { id: "library-003", name: "Improvisação com três notas", category: "Objetivos criativos" },
+      { id: "library-004", name: "Estudo n.º 1 (Sor, op. 60)", category: "Estudos" },
+      { id: "library-005", name: "Ligados ascendentes", category: "Objetivos técnicos" },
+    ],
+    schoolYears: [
+      {
+        id: "year-2026-27",
+        name: "2026/27",
+        startDate: "2026-09-14",
+        endDate: "2027-06-30",
+        holidays: [
+          { id: "holiday-001", name: "Férias de Natal", startDate: "2026-12-21", endDate: "2027-01-03" },
+          { id: "holiday-002", name: "Férias da Páscoa", startDate: "2027-03-22", endDate: "2027-04-02" },
+        ],
+        publicHolidays: [
+          { id: "ph-001", name: "Implantação da República", date: "2026-10-05" },
+          { id: "ph-002", name: "Dia de Portugal", date: "2027-06-10" },
+        ],
+        events: [
+          { id: "event-001", name: "Audição de Natal", date: "2026-12-16" },
+          { id: "event-002", name: "Audição de Primavera", date: "2027-04-22" },
+        ],
+        students: [
+          {
+            studentId: "student-001",
+            grade: "8.º",
+            schedule: { weekday: 3, time: "16:00", duration: 45 },
+            annualPlan: [
+              { libraryItemId: "library-001" },
+              { libraryItemId: "library-002" },
+              { libraryItemId: "library-004" },
+            ],
+            enrolledEventIds: ["event-001"],
+            lessons: [
+              {
+                id: "lesson-001",
+                date: "2026-09-30",
+                time: "16:00",
+                duration: 45,
+                type: "normal",
+                status: "completed",
+                objectives: [{ type: "text", content: "Postura e arpejos." }],
+                summary: [
+                  { type: "text", content: "Revisão da postura e trabalho de arpejos." },
+                  { type: "libraryItem", libraryItemId: "library-001" },
+                ],
+              },
+              {
+                id: "lesson-002",
+                date: "2026-10-07",
+                time: "16:00",
+                duration: 45,
+                type: "normal",
+                status: "absence",
+                objectives: [],
+                summary: [],
+              },
+              {
+                id: "lesson-003",
+                date: "2026-10-15",
+                time: "17:00",
+                duration: 45,
+                type: "transferred",
+                status: "completed",
+                objectives: [{ type: "text", content: "Expressão no Romance." }],
+                summary: [
+                  { type: "text", content: "Trabalho de expressão e preparação da peça." },
+                  { type: "libraryItem", libraryItemId: "library-002" },
+                  { type: "libraryItem", libraryItemId: "library-001" },
+                ],
+              },
+              {
+                id: "lesson-004",
+                date: "2026-10-21",
+                time: "16:00",
+                duration: 45,
+                type: "normal",
+                status: "completed",
+                objectives: [],
+                summary: [],
+              },
+              {
+                id: "lesson-005",
+                date: "2026-10-28",
+                time: "16:00",
+                duration: 45,
+                type: "normal",
+                status: "completed",
+                objectives: [],
+                summary: [],
+              },
+            ],
+          },
+          {
+            studentId: "student-002",
+            grade: "9.º",
+            schedule: null,
+            annualPlan: [{ libraryItemId: "library-003" }],
+            enrolledEventIds: [],
+            lessons: [],
+          },
+          {
+            studentId: "student-003",
+            grade: "7.º",
+            schedule: { weekday: 5, time: "17:00", duration: 30 },
+            annualPlan: [],
+            enrolledEventIds: [],
+            lessons: [],
+          },
+          {
+            studentId: "student-004",
+            grade: "5.º",
+            schedule: { weekday: 1, time: "18:00", duration: 30 },
+            annualPlan: [{ libraryItemId: "library-005" }],
+            enrolledEventIds: [],
+            lessons: [
+              {
+                id: "lesson-101",
+                date: "2026-10-19",
+                time: "18:00",
+                duration: 30,
+                type: "normal",
+                status: "completed",
+                objectives: [],
+                summary: [],
+              },
+              {
+                id: "lesson-102",
+                date: "2026-10-21",
+                time: "17:00",
+                duration: 30,
+                type: "extra",
+                status: "completed",
+                objectives: [],
+                summary: [],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    settings: { activeSchoolYearId: "year-2026-27" },
+  };
+}
