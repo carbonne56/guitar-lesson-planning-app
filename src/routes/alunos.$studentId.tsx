@@ -73,6 +73,19 @@ function StudentPage() {
     );
     setExtraDate("");
   };
+  const copyAnnualPlan = async () => {
+    if (!ctx) return;
+
+    const text = ctx.annualPlan
+      .map((entry) => state.library.find((item) => item.id === entry.libraryItemId)?.name)
+      .filter((name): name is string => !!name)
+      .map((name) => `${name}.`)
+      .join("\n");
+
+    if (!text) return;
+
+    await navigator.clipboard.writeText(text);
+  };
 
   return (
     <main className="page">
@@ -143,7 +156,25 @@ function StudentPage() {
         </details>
 
         <details className="disclosure">
-          <summary>Plano anual {year && <span className="ml-1 font-normal text-muted-foreground">{year.name}</span>}</summary>
+          <summary className="flex items-center justify-between gap-2">
+            <span>
+              Plano anual{" "}
+              {year && <span className="ml-1 font-normal text-muted-foreground">{year.name}</span>}
+            </span>
+
+            {ctx?.annualPlan.length ? (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={(e) => {
+                  e.preventDefault();
+                  copyAnnualPlan();
+                }}
+              >
+                Copiar planeamento
+              </button>
+            ) : null}
+          </summary>
           <div className="space-y-3 px-4 pb-4">
             <AnnualPlanList
               state={state}

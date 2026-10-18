@@ -111,7 +111,28 @@ function LessonPage() {
           <summary>Planeamento</summary>
 
           <div className="px-4 pb-4">
-            <AnnualPlanList state={state} ctx={ctx} />
+            <AnnualPlanList
+              state={state}
+              ctx={ctx}
+              onSelect={(libraryItemId) => {
+                const item = state.library.find(
+                  (libraryItem) => libraryItem.id === libraryItemId,
+                );
+
+                if (!item) return;
+
+                set((l) => ({
+                  ...l,
+                  objectives:
+                    l.objectives.length > 0
+                      ? `${l.objectives}\n${item.name}`
+                      : item.name,
+                  objectiveLibraryItemIds: l.objectiveLibraryItemIds.includes(item.id)
+                    ? l.objectiveLibraryItemIds
+                    : [...l.objectiveLibraryItemIds, item.id],
+                }));
+              }}
+            />
           </div>
         </details>
 
@@ -141,27 +162,40 @@ function LessonPage() {
               minHeight="5rem"
             />
 
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={!lesson.objectives.trim()}
-              onClick={() =>
-                set((l) => ({
-                  ...l,
-                  summary: l.summary.trim()
-                    ? `${l.summary.trim()}\n\n${l.objectives.trim()}`
-                    : l.objectives.trim(),
-                  summaryLibraryItemIds: [
-                    ...new Set([
-                      ...l.summaryLibraryItemIds,
-                      ...l.objectiveLibraryItemIds,
-                    ]),
-                  ],
-                }))
-              }
-            >
-              Replicar no sumário
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={!lesson.objectives.trim()}
+                onClick={() =>
+                  navigator.clipboard.writeText(lesson.objectives)
+                }
+              >
+                Copiar objetivos
+              </button>
+
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={!lesson.objectives.trim()}
+                onClick={() =>
+                  set((l) => ({
+                    ...l,
+                    summary: l.summary.trim()
+                      ? `${l.summary.trim()}\n\n${l.objectives.trim()}`
+                      : l.objectives.trim(),
+                    summaryLibraryItemIds: [
+                      ...new Set([
+                        ...l.summaryLibraryItemIds,
+                        ...l.objectiveLibraryItemIds,
+                      ]),
+                    ],
+                  }))
+                }
+              >
+                Replicar no sumário
+              </button>
+            </div>
           </div>
         </details>
 
@@ -189,6 +223,17 @@ function LessonPage() {
             placeholder="O que aconteceu na aula…"
             minHeight="12rem"
           />
+
+          <button
+            type="button"
+            className="btn-secondary mt-3"
+            disabled={!lesson.summary.trim()}
+            onClick={() =>
+              navigator.clipboard.writeText(lesson.summary)
+            }
+          >
+            Copiar sumário
+          </button>
         </section>
       </div>
     </main>

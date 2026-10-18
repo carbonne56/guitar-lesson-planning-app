@@ -173,6 +173,10 @@
   @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50;
 }
 
+@utility btn-secondary {
+  @apply inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-secondary hover:shadow active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+}
+
 @utility btn-soft {
   @apply inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/70;
 }
