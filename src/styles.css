@@ -129,29 +129,100 @@
   h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; }
 }
 
-@layer components {
-  .page { @apply mx-auto w-full max-w-5xl px-4 pt-5 pb-28; }
-  .page-title { @apply text-2xl font-semibold; }
-  .eyebrow { @apply text-xs font-medium uppercase tracking-wider text-muted-foreground; }
-  .surface { @apply rounded-xl border bg-card; }
-  .field { @apply h-10 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20; }
-  .field-area { @apply min-h-28 w-full rounded-lg border border-input bg-card p-3 text-[15px] leading-relaxed outline-none focus:border-ring focus:ring-2 focus:ring-ring/20; }
-  .chip { @apply inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground; }
-  .chip-moved { @apply bg-moved-soft text-moved; }
-  .chip-absence { @apply bg-absence-soft text-absence; }
-  .btn-ghost { @apply inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground; }
-  .btn-primary { @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50; }
-  .btn-soft { @apply inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/70; }
-  .disclosure { @apply surface; }
-  .disclosure > summary { @apply flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold select-none; }
-  .disclosure > summary::-webkit-details-marker { display: none; }
-  .disclosure > summary::after { content: "▾"; @apply text-muted-foreground transition-transform; }
-  .disclosure[open] > summary::after { transform: rotate(180deg); }
-  .lesson-card { @apply surface relative block overflow-hidden px-4 py-3 pl-5 transition-shadow hover:shadow-sm; }
-  .lesson-card::before { content: ""; @apply absolute inset-y-0 left-0 w-1 bg-border; }
-  .lesson-card[data-tone="moved"] { @apply border-moved/40; }
-  .lesson-card[data-tone="moved"]::before { @apply bg-moved; }
-  .lesson-card[data-tone="absence"] { @apply border-absence/40; }
-  .lesson-card[data-tone="absence"]::before { @apply bg-absence; }
-  .event-row { @apply flex items-center gap-3 rounded-xl border border-dashed border-event/50 bg-event-soft px-4 py-2.5 text-sm; }
+@utility page {
+  @apply mx-auto w-full max-w-5xl px-4 pt-5 pb-28;
+}
+
+@utility page-title {
+  @apply text-2xl font-semibold;
+}
+
+@utility eyebrow {
+  @apply text-xs font-medium uppercase tracking-wider text-muted-foreground;
+}
+
+@utility surface {
+  @apply rounded-xl border bg-card;
+}
+
+@utility field {
+  @apply h-10 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20;
+}
+
+@utility field-area {
+  @apply min-h-28 w-full rounded-lg border border-input bg-card p-3 text-[15px] leading-relaxed outline-none focus:border-ring focus:ring-2 focus:ring-ring/20;
+}
+
+@utility chip {
+  @apply inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground;
+}
+
+@utility chip-moved {
+  @apply bg-moved-soft text-moved;
+}
+
+@utility chip-absence {
+  @apply bg-absence-soft text-absence;
+}
+
+@utility btn-ghost {
+  @apply inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground;
+}
+
+@utility btn-primary {
+  @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50;
+}
+
+@utility btn-soft {
+  @apply inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/70;
+}
+
+@utility disclosure {
+  @apply rounded-xl border bg-card;
+}
+
+.disclosure > summary {
+  @apply flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold select-none;
+}
+
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure > summary::after {
+  content: "▾";
+  @apply text-muted-foreground transition-transform;
+}
+
+.disclosure[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+@utility lesson-card {
+  @apply rounded-xl border bg-card relative block overflow-hidden px-4 py-3 pl-5 transition-shadow hover:shadow-sm;
+}
+
+.lesson-card::before {
+  content: "";
+  @apply absolute inset-y-0 left-0 w-1 bg-border;
+}
+
+.lesson-card[data-tone="moved"] {
+  @apply border-moved/40;
+}
+
+.lesson-card[data-tone="moved"]::before {
+  @apply bg-moved;
+}
+
+.lesson-card[data-tone="absence"] {
+  @apply border-absence/40;
+}
+
+.lesson-card[data-tone="absence"]::before {
+  @apply bg-absence;
+}
+
+@utility event-row {
+  @apply flex items-center gap-3 rounded-xl border border-dashed border-event/50 bg-event-soft px-4 py-2.5 text-sm;
 }
