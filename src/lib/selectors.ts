@@ -1,4 +1,4 @@
-import type { AppState, Lesson, SchoolYear, Segment, Student, YearStudent } from "./model";
+import type { AppState, Lesson, SchoolYear, Student, YearStudent } from "./model";
 import { todayISO } from "./dates";
 
 export function activeYear(state: AppState): SchoolYear | null {
@@ -59,13 +59,6 @@ export function lessonStats(ctx: YearStudent | undefined, today = todayISO()) {
 export function summaryUsage(ctx: YearStudent, libraryItemId: string): number {
   return ctx.lessons.filter((lesson) => lesson.summaryLibraryItemIds.includes(libraryItemId))
     .length;
-}
-
-export function segmentsText(segments: Segment[]): string {
-  return segments
-    .filter((s): s is Extract<Segment, { type: "text" }> => s.type === "text")
-    .map((s) => s.content)
-    .join("\n");
 }
 
 export function libraryCategories(state: AppState): string[] {

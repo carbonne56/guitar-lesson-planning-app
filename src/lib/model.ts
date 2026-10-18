@@ -28,9 +28,6 @@ export interface LibraryItem {
  * Kept temporarily while the lesson editor is being migrated from
  * structured segments to plain text + library references.
  */
-export type Segment =
-  | { type: "text"; content: string }
-  | { type: "libraryItem"; libraryItemId: string };
 
 export type LessonType = "normal" | "transferred" | "extra";
 export type LessonStatus = "completed" | "absence";
