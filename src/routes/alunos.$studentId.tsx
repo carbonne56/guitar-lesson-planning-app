@@ -44,7 +44,7 @@ function StudentPage() {
       ...s,
       schoolYears: s.schoolYears.map((y) =>
         y.id === year.id
-          ? { ...y, students: [...y.students, { studentId, grade: "", schedule: student.schedule, annualPlan: [], enrolledEventIds: [], lessons: [] }] }
+          ? { ...y, students: [...y.students, { studentId, grade: "", schedule: student.schedule, created: false, annualPlan: [], enrolledEventIds: [], lessons: [] }] }
           : y,
       ),
     }));

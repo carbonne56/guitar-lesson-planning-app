@@ -56,10 +56,9 @@ export function lessonStats(ctx: YearStudent | undefined, today = todayISO()) {
 }
 
 /** Number of lessons whose Summary references the library item. */
-export function summaryUsage(ctx: YearStudent | undefined, libraryItemId: string): number {
-  return (ctx?.lessons ?? []).filter((l) =>
-    l.summary.some((s) => s.type === "libraryItem" && s.libraryItemId === libraryItemId),
-  ).length;
+export function summaryUsage(ctx: YearStudent, libraryItemId: string): number {
+  return ctx.lessons.filter((lesson) => lesson.summaryLibraryItemIds.includes(libraryItemId))
+    .length;
 }
 
 export function segmentsText(segments: Segment[]): string {

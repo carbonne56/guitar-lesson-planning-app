@@ -22,6 +22,12 @@ export interface LibraryItem {
   category: string;
 }
 
+/**
+ * Legacy type.
+ *
+ * Kept temporarily while the lesson editor is being migrated from
+ * structured segments to plain text + library references.
+ */
 export type Segment =
   | { type: "text"; content: string }
   | { type: "libraryItem"; libraryItemId: string };
@@ -36,8 +42,15 @@ export interface Lesson {
   duration: number;
   type: LessonType;
   status: LessonStatus;
-  objectives: Segment[];
-  summary: Segment[];
+
+  // Free text written by the teacher.
+  objectives: string;
+  summary: string;
+
+  // Structured record of library elements selected for this lesson.
+  // These are independent from the text itself.
+  objectiveLibraryItemIds: string[];
+  summaryLibraryItemIds: string[];
 }
 
 export interface PlanEntry {
@@ -48,6 +61,7 @@ export interface YearStudent {
   studentId: string;
   grade: string;
   schedule: Schedule | null; // snapshot used for this year's generation
+  created: boolean;
   annualPlan: PlanEntry[];
   enrolledEventIds: string[];
   lessons: Lesson[];
@@ -96,5 +110,6 @@ export function newId(prefix: string): string {
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID().slice(0, 8)
       : Math.random().toString(36).slice(2, 10);
+
   return `${prefix}-${Date.now().toString(36)}-${rnd}`;
 }

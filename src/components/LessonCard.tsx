@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { Lesson, Student } from "@/lib/model";
 import { WEEKDAYS_SHORT, formatShort, weekdayOf } from "@/lib/dates";
-import { segmentsText } from "@/lib/selectors";
+// import { segmentsText } from "@/lib/selectors";
 
 const TYPE_LABEL = { transferred: "Transferida", extra: "Extra" } as const;
 
@@ -16,7 +16,7 @@ export function LessonCard({
   showStudent?: boolean;
 }) {
   const tone = lesson.status === "absence" ? "absence" : lesson.type !== "normal" ? "moved" : "default";
-  const summary = segmentsText(lesson.summary);
+  const summary = lesson.summary;
   return (
     <Link to="/aulas/$lessonId" params={{ lessonId: lesson.id }} className="lesson-card" data-tone={tone}>
       <div className="flex items-baseline justify-between gap-3">

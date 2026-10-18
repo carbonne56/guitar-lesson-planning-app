@@ -45,7 +45,7 @@ export function StudentForm({
             ? y.students.map((c) => (c.studentId === id ? { ...c, grade } : c))
             : [
                 ...y.students,
-                { studentId: id, grade, schedule, annualPlan: [], enrolledEventIds: [], lessons: [] },
+                { studentId: id, grade, schedule, created: false, annualPlan: [], enrolledEventIds: [], lessons: [] },
               ],
         };
       });
