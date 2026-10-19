@@ -35,16 +35,63 @@ function StudentPage() {
   const ctx = yearContext(year, studentId);
   const stats = lessonStats(ctx);
   const age = ageFrom(student.birthDate);
-  const lessons = sortLessons(ctx?.lessons ?? []);
+  const lessons = sortLessons((ctx?.lessons ?? []).filter((lesson) => !lesson.blocked));
+
+  const enrolledEvents = (year?.events ?? []).filter((event) =>
+    event.program.some((entry) => entry.studentId === studentId),
+  );
+
+  const timeline = [
+    ...lessons.map((lesson) => ({
+      type: "lesson" as const,
+      date: lesson.date,
+      time: lesson.time,
+      lesson,
+    })),
+    ...enrolledEvents.map((event) => ({
+      type: "event" as const,
+      date: event.date,
+      time: "",
+      event,
+    })),
+  ].sort((a, b) => {
+    const dateComparison = a.date.localeCompare(b.date);
+
+    if (dateComparison !== 0) {
+      return dateComparison;
+    }
+
+    // No mesmo dia, as aulas aparecem antes dos eventos.
+    if (a.type !== b.type) {
+      return a.type === "lesson" ? -1 : 1;
+    }
+
+    return a.time.localeCompare(b.time);
+  });
+
   const today = todayISO();
 
   const ensureCtx = () => {
     if (!year || ctx) return;
+
     update((s) => ({
       ...s,
       schoolYears: s.schoolYears.map((y) =>
         y.id === year.id
-          ? { ...y, students: [...y.students, { studentId, grade: "", schedule: student.schedule, created: false, annualPlan: [], enrolledEventIds: [], lessons: [] }] }
+          ? {
+              ...y,
+              students: [
+                ...y.students,
+                {
+                  studentId,
+                  grade: "",
+                  schedule: student.schedule,
+                  created: false,
+                  annualPlan: [],
+                  lessons: [],
+                },
+              ],
+            }
           : y,
       ),
     }));
@@ -122,36 +169,160 @@ function StudentPage() {
       <div className="mb-6 grid gap-3 md:grid-cols-2">
         <details className="disclosure">
           <summary>Eventos</summary>
-          <ul className="space-y-1 px-4 pb-3">
+          <ul className="space-y-3 px-4 pb-3">
             {(year?.events ?? []).map((e) => {
-              const enrolled = ctx?.enrolledEventIds.includes(e.id) ?? false;
-              const until = lessons.filter((l) => l.type !== "extra" && l.date >= today && l.date < e.date).length;
+              const programEntries = e.program.filter(
+                (entry) => entry.studentId === studentId,
+              );
+
+              const until = lessons.filter(
+                (l) =>
+                  l.type !== "extra" &&
+                  l.date >= today &&
+                  l.date < e.date,
+              ).length;
+
               return (
-                <li key={e.id}>
-                  <label className="flex items-center gap-2 py-1 text-sm">
-                    <input
-                      type="checkbox"
-                      className="size-4 accent-primary"
-                      checked={enrolled}
-                      disabled={!ctx}
-                      onChange={() =>
-                        year &&
-                        update((s) =>
-                          mapCtx(s, year.id, studentId, (c) => ({
-                            ...c,
-                            enrolledEventIds: enrolled ? c.enrolledEventIds.filter((x) => x !== e.id) : [...c.enrolledEventIds, e.id],
-                          })),
-                        )
-                      }
-                    />
-                    <span className="flex-1">{e.name}</span>
-                    <span className="text-xs text-muted-foreground">{formatShort(e.date)}</span>
-                  </label>
-                  {enrolled && <div className="pl-6 text-xs text-muted-foreground">{until} aulas até ao evento</div>}
+                <li key={e.id} className="border-b pb-3 last:border-0">
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="font-medium">{e.name}</span>
+
+                    <span className="text-xs text-muted-foreground">
+                      {formatShort(e.date)}
+                    </span>
+                  </div>
+
+                  {programEntries.length > 0 ? (
+                    <div className="mt-2 space-y-1 pl-2">
+                      {programEntries.map((entry) => {
+                        const item = state.library.find(
+                          (libraryItem) =>
+                            libraryItem.id === entry.libraryItemId,
+                        );
+
+                        return (
+                          <div
+                            key={entry.id}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <span className="flex-1">
+                              {item?.name ?? "Elemento removido"}
+                            </span>
+
+                            <button
+                              type="button"
+                              className="text-xs text-muted-foreground hover:text-destructive"
+                              onClick={() =>
+                                year &&
+                                update((s) => ({
+                                  ...s,
+                                  schoolYears: s.schoolYears.map((y) =>
+                                    y.id !== year.id
+                                      ? y
+                                      : {
+                                          ...y,
+                                          events: y.events.map((event) =>
+                                            event.id !== e.id
+                                              ? event
+                                              : {
+                                                  ...event,
+                                                  program: event.program.filter(
+                                                    (programEntry) =>
+                                                      programEntry.id !== entry.id,
+                                                  ),
+                                                },
+                                          ),
+                                        },
+                                  ),
+                                }))
+                              }
+                              aria-label={`Remover ${item?.name ?? "elemento"}`}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Ainda sem elementos no programa.
+                    </div>
+                  )}
+
+                  {ctx?.annualPlan.length ? (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs font-medium text-accent-foreground">
+                        ＋ Adicionar elemento
+                      </summary>
+
+                      <div className="mt-2 space-y-1 pl-2">
+                        {ctx.annualPlan.map((planEntry) => {
+                          const item = state.library.find(
+                            (libraryItem) =>
+                              libraryItem.id === planEntry.libraryItemId,
+                          );
+
+                          if (!item) return null;
+
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              className="block w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-secondary"
+                              onClick={() =>
+                                year &&
+                                update((s) => ({
+                                  ...s,
+                                  schoolYears: s.schoolYears.map((y) =>
+                                    y.id !== year.id
+                                      ? y
+                                      : {
+                                          ...y,
+                                          events: y.events.map((event) =>
+                                            event.id !== e.id
+                                              ? event
+                                              : {
+                                                  ...event,
+                                                  program: [
+                                                    ...event.program,
+                                                    {
+                                                      id: newId("program"),
+                                                      studentId,
+                                                      libraryItemId: item.id,
+                                                    },
+                                                  ],
+                                                },
+                                          ),
+                                        },
+                                  ),
+                                }))
+                              }
+                            >
+                              {item.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  ) : (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Adicione primeiro elementos ao plano anual deste aluno.
+                    </div>
+                  )}
+
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {until} {until === 1 ? "aula" : "aulas"} até ao evento
+                  </div>
                 </li>
               );
             })}
-            {!year?.events.length && <li className="text-sm text-muted-foreground">Sem eventos neste ano letivo.</li>}
+
+            {!year?.events.length && (
+              <li className="text-sm text-muted-foreground">
+                Sem eventos neste ano letivo.
+              </li>
+            )}
           </ul>
         </details>
 
@@ -200,11 +371,38 @@ function StudentPage() {
         <h2 className="eyebrow">Aulas</h2>
       </div>
       <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-        {lessons.map((l) => (
-          <LessonCard key={l.id} lesson={l} student={student} showStudent={false} />
-        ))}
+        {timeline.map((item) =>
+          item.type === "lesson" ? (
+            <LessonCard
+              key={item.lesson.id}
+              lesson={item.lesson}
+              student={student}
+              showStudent={false}
+            />
+          ) : (
+            <div
+              key={item.event.id}
+              className="rounded-xl border-2 border-primary bg-primary/10 p-4"
+            >
+              <div className="text-sm text-muted-foreground">
+                {formatShort(item.event.date)}
+              </div>
+              <div className="mt-1 font-semibold">
+                {item.event.name}
+              </div>
+              <div className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Evento
+              </div>
+            </div>
+          ),
+        )}
       </div>
-      {!lessons.length && <p className="text-sm text-muted-foreground">Ainda sem aulas neste ano letivo.</p>}
+
+      {!timeline.length && (
+        <p className="text-sm text-muted-foreground">
+          Ainda sem aulas ou eventos neste ano letivo.
+        </p>
+      )}
 
       {year && (
         <div className="mt-4 flex flex-wrap items-center gap-2">

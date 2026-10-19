@@ -39,6 +39,7 @@ export interface Lesson {
   duration: number;
   type: LessonType;
   status: LessonStatus;
+  blocked: boolean;
 
   // Free text written by the teacher.
   objectives: string;
@@ -60,7 +61,6 @@ export interface YearStudent {
   schedule: Schedule | null; // snapshot used for this year's generation
   created: boolean;
   annualPlan: PlanEntry[];
-  enrolledEventIds: string[];
   lessons: Lesson[];
 }
 
@@ -77,10 +77,17 @@ export interface PublicHoliday {
   date: ISODate;
 }
 
+export interface EventProgramEntry {
+  id: string;
+  studentId: string;
+  libraryItemId: string;
+}
+
 export interface SchoolEvent {
   id: string;
   name: string;
   date: ISODate;
+  program: EventProgramEntry[];
 }
 
 export interface SchoolYear {

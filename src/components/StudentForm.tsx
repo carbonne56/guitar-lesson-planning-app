@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { newId, type Student } from "@/lib/model";
-import { WEEKDAYS } from "@/lib/dates";
+import { WEEKDAYS, todayISO } from "@/lib/dates";
 import { activeYear, yearContext } from "@/lib/selectors";
 import { useStore } from "@/lib/store";
+import { reviewLessonsForStudent } from "@/lib/lessonGeneration";
 
 /** Shared create/edit form. Saving never rewrites existing lessons. */
 export function StudentForm({
@@ -30,27 +31,126 @@ export function StudentForm({
   const save = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+
     const schedule =
-      weekday === "" ? null : { weekday: Number(weekday), time, duration: Number(duration) || 45 };
+      weekday === ""
+        ? null
+        : {
+            weekday: Number(weekday),
+            time,
+            duration: Number(duration) || 45,
+          };
+
     const id = student?.id ?? newId("student");
-    const next: Student = { id, name: name.trim(), birthDate: birthDate || null, active, schedule };
+
+    const scheduleChanged =
+      !!student &&
+      JSON.stringify(student.schedule) !==
+        JSON.stringify(schedule);
+
+    if (scheduleChanged && year && ctx) {
+      const futureNormalLessons = ctx.lessons.filter(
+        (lesson) =>
+          lesson.type === "normal" &&
+          lesson.date >= todayISO(),
+      );
+
+      if (futureNormalLessons.length > 0) {
+        const confirmed = window.confirm(
+          `O horário deste aluno foi alterado.\n\n` +
+            `Todas as ${futureNormalLessons.length} ocorrências futuras ` +
+            `serão atualizadas de acordo com o novo horário, ` +
+            `tendo em conta férias e feriados.\n\n` +
+            `Aulas passadas, transferidas e extraordinárias ` +
+            `não serão alteradas.\n\n` +
+            `Quer continuar?`,
+        );
+
+        if (!confirmed) return;
+      }
+    }
+
+    const next: Student = {
+      id,
+      name: name.trim(),
+      birthDate: birthDate || null,
+      active,
+      schedule,
+    };
+
     update((s) => {
-      const students = student ? s.students.map((x) => (x.id === id ? next : x)) : [...s.students, next];
-      const schoolYears = s.schoolYears.map((y) => {
-        if (y.id !== s.settings.activeSchoolYearId) return y;
-        const has = y.students.some((c) => c.studentId === id);
-        return {
-          ...y,
-          students: has
-            ? y.students.map((c) => (c.studentId === id ? { ...c, grade } : c))
-            : [
-                ...y.students,
-                { studentId: id, grade, schedule, created: false, annualPlan: [], enrolledEventIds: [], lessons: [] },
-              ],
-        };
-      });
-      return { ...s, students, schoolYears };
+      const students = student
+        ? s.students.map((x) =>
+            x.id === id ? next : x,
+          )
+        : [...s.students, next];
+
+      let nextState = {
+        ...s,
+        students,
+      };
+
+      const currentYear = nextState.schoolYears.find(
+        (y) =>
+          y.id ===
+          nextState.settings.activeSchoolYearId,
+      );
+
+      if (!currentYear) return nextState;
+
+      const has = currentYear.students.some(
+        (c) => c.studentId === id,
+      );
+
+      nextState = {
+        ...nextState,
+        schoolYears: nextState.schoolYears.map((y) => {
+          if (y.id !== currentYear.id) return y;
+
+          return {
+            ...y,
+            students: has
+              ? y.students.map((c) =>
+                  c.studentId === id
+                    ? {
+                        ...c,
+                        grade,
+                      }
+                    : c,
+                )
+              : [
+                  ...y.students,
+                  {
+                    studentId: id,
+                    grade,
+                    schedule,
+                    created: false,
+                    annualPlan: [],
+                    enrolledEventIds: [],
+                    lessons: [],
+                  },
+                ],
+          };
+        }),
+      };
+
+      if (
+        scheduleChanged &&
+        year &&
+        ctx &&
+        schedule
+      ) {
+        return reviewLessonsForStudent(
+          nextState,
+          year.id,
+          id,
+          schedule,
+        ).state;
+      }
+
+      return nextState;
     });
+
     onOpenChange(false);
   };
 
@@ -98,7 +198,7 @@ export function StudentForm({
           </label>
           {student && (
             <p className="text-xs text-muted-foreground">
-              Alterar o horário não modifica as aulas já existentes.
+              Ao alterar o horário, as aulas futuras serão atualizadas após confirmação.
             </p>
           )}
           <div className="flex justify-end gap-2 pt-2">

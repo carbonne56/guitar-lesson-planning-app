@@ -50,8 +50,6 @@ export function createSeed(): AppState {
           { id: "ph-002", name: "Dia de Portugal", date: "2027-06-10" },
         ],
         events: [
-          { id: "event-001", name: "Audição de Natal", date: "2026-12-16" },
-          { id: "event-002", name: "Audição de Primavera", date: "2027-04-22" },
         ],
         students: [
           {

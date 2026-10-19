@@ -29,6 +29,8 @@ function Calendario() {
   const [confirmingGeneration, setConfirmingGeneration] = useState(false);
   const [addingHoliday, setAddingHoliday] = useState(false);
   const [addingPublicHoliday, setAddingPublicHoliday] = useState(false);
+  const [addingEvent, setAddingEvent] = useState(false);
+  const [viewingEventId, setViewingEventId] = useState<string | null>(null);
 
   const generateLessons = () => {
     if (!year) return;
@@ -251,6 +253,71 @@ function Calendario() {
               </ul>
             )}
           </section>
+          <section>
+            <div className="mb-1.5 flex items-center justify-between gap-3">
+              <h2 className="eyebrow">Eventos</h2>
+
+              <button
+                className="btn-soft"
+                onClick={() => setAddingEvent(true)}
+              >
+                <Plus className="size-4" />
+                Adicionar evento
+              </button>
+            </div>
+
+            {year.events.length === 0 ? (
+              <div className="surface px-4 py-3 text-sm text-muted-foreground">
+                Ainda não foram definidos eventos.
+              </div>
+            ) : (
+              <ul className="surface divide-y">
+                {[...year.events]
+                  .sort((a, b) => a.date.localeCompare(b.date))
+                  .map((event) => (
+                    <li
+                      key={event.id}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm"
+                    >
+                      <span className="w-16 shrink-0 text-muted-foreground">
+                        {formatShort(event.date)}
+                      </span>
+
+                      <button
+                        type="button"
+                        className="flex-1 text-left font-medium hover:text-accent-foreground hover:underline"
+                        onClick={() => setViewingEventId(event.id)}
+                      >
+                        {event.name}
+                      </button>
+
+                      <button
+                        className="btn-ghost"
+                        title="Eliminar evento"
+                        aria-label={`Eliminar ${event.name}`}
+                        onClick={() =>
+                          update((s) => ({
+                            ...s,
+                            schoolYears: s.schoolYears.map((y) =>
+                              y.id !== year.id
+                                ? y
+                                : {
+                                    ...y,
+                                    events: y.events.filter(
+                                      (e) => e.id !== event.id,
+                                    ),
+                                  },
+                            ),
+                          }))
+                        }
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </section>
         </div>
       )}
 
@@ -335,6 +402,17 @@ function Calendario() {
       )}
       {addingPublicHoliday && year && (
         <NewPublicHolidayDialog yearId={year.id} onClose={() => setAddingPublicHoliday(false)} />
+      )}
+      {addingEvent && year && (
+        <NewEventDialog yearId={year.id} onClose={() => setAddingEvent(false)} />
+      )}
+      {viewingEventId && year && (
+        <EventProgramDialog
+          eventId={viewingEventId}
+          year={year}
+          onClose={() => setViewingEventId(null)}
+          state={state}
+        />
       )}
     </main>
   );
@@ -586,6 +664,206 @@ function NewPublicHolidayDialog({ yearId, onClose }: { yearId: string; onClose: 
             </button>
           </div>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NewEventDialog({ yearId, onClose }: { yearId: string; onClose: () => void }) {
+  const { update } = useStore();
+  const [name, setName] = useState("");
+  const [date, setDate] = useState("");
+
+  const save = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!name.trim() || !date) return;
+
+    const event = {
+      id: newId("event"),
+      name: name.trim(),
+      date,
+      program: [],
+    };
+
+    update((s) => ({
+      ...s,
+      schoolYears: s.schoolYears.map((y) =>
+        y.id !== yearId
+          ? y
+          : {
+              ...y,
+              events: [...y.events, event],
+            },
+      ),
+    }));
+
+    onClose();
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Adicionar evento</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={save} className="space-y-3">
+          <input
+            className="field"
+            placeholder="ex.: Audição de Natal"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            autoFocus
+          />
+
+          <label className="block space-y-1 text-xs text-muted-foreground">
+            Data
+            <input
+              className="field"
+              type="date"
+              value={date}
+              min={yearId ? undefined : undefined}
+              onChange={(e) => setDate(e.target.value)}
+              required
+            />
+          </label>
+
+          <div className="flex justify-end gap-2">
+            <button type="button" className="btn-ghost" onClick={onClose}>
+              Cancelar
+            </button>
+
+            <button className="btn-primary" disabled={!name.trim() || !date}>
+              Adicionar
+            </button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EventProgramDialog({
+  eventId,
+  year,
+  state,
+  onClose,
+}: {
+  eventId: string;
+  year: NonNullable<ReturnType<typeof activeYear>>;
+  state: ReturnType<typeof useStore>["state"];
+  onClose: () => void;
+}) {
+
+  const { update } = useStore();
+  
+  const event = year.events.find((item) => item.id === eventId);
+
+  if (!event) return null;
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{event.name}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="text-sm text-muted-foreground">
+            {formatLong(event.date)}
+          </div>
+
+          {event.program.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Ainda não há elementos no programa.
+            </p>
+          ) : (
+            <ol className="surface divide-y">
+              {event.program.map((entry, index) => {
+                const student = state.students.find(
+                  (item) => item.id === entry.studentId,
+                );
+
+                const libraryItem = state.library.find(
+                  (item) => item.id === entry.libraryItemId,
+                );
+
+                return (
+                  <li
+                    key={entry.id}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("text/plain", entry.id);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+
+                      const draggedId = e.dataTransfer.getData("text/plain");
+                      if (!draggedId || draggedId === entry.id) return;
+
+                      const fromIndex = event.program.findIndex(
+                        (item) => item.id === draggedId,
+                      );
+
+                      const toIndex = event.program.findIndex(
+                        (item) => item.id === entry.id,
+                      );
+
+                      if (fromIndex === -1 || toIndex === -1) return;
+
+                      update((s) => ({
+                        ...s,
+                        schoolYears: s.schoolYears.map((y) =>
+                          y.id !== year.id
+                            ? y
+                            : {
+                                ...y,
+                                events: y.events.map((currentEvent) => {
+                                  if (currentEvent.id !== event.id) {
+                                    return currentEvent;
+                                  }
+
+                                  const program = [...currentEvent.program];
+                                  const [moved] = program.splice(fromIndex, 1);
+                                  program.splice(toIndex, 0, moved);
+
+                                  return {
+                                    ...currentEvent,
+                                    program,
+                                  };
+                                }),
+                              },
+                        ),
+                      }));
+                    }}
+                    className="cursor-grab px-3 py-2.5 text-sm active:cursor-grabbing"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 shrink-0 text-right tabular-nums text-muted-foreground">
+                        {index + 1}
+                      </span>
+
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium">
+                          {student?.name ?? "Aluno removido"}
+                        </span>
+
+                        <span className="block text-muted-foreground">
+                          {libraryItem?.name ?? "Elemento removido"}
+                        </span>
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
