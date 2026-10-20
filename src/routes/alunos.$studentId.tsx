@@ -107,7 +107,7 @@ const nextLessonId = normalLessons
                 {
                   studentId,
                   grade: "",
-                  schedule: student.schedule,
+                  schedules: student.schedules.map((schedule) => ({ ...schedule })),
                   created: false,
                   annualPlan: [],
                   lessons: [],
@@ -130,12 +130,15 @@ const nextLessonId = normalLessons
           {
             id: newId("lesson"),
             date: extraDate,
-            time: student.schedule?.time ?? "16:00",
-            duration: student.schedule?.duration ?? 45,
+            time: student.schedules[0]?.time ?? "16:00",
+            duration: student.schedules[0]?.duration ?? 45,
             type: "extra",
             status: "completed",
-            objectives: [],
-            summary: [],
+            blocked: false,
+            objectives: "",
+            summary: "",
+            objectiveLibraryItemIds: [],
+            summaryLibraryItemIds: [],
           },
         ],
       })),
@@ -172,9 +175,15 @@ const nextLessonId = normalLessons
                 .join(" · ")}
             </div>
             <div className="text-sm text-muted-foreground">
-              {student.schedule
-                ? `${WEEKDAYS[student.schedule.weekday]}, ${student.schedule.time} · ${student.schedule.duration} min`
-                : "Sem horário"}
+              {student.schedules.length > 0 ? (
+                student.schedules.map((schedule, index) => (
+                  <div key={`${schedule.weekday}-${schedule.time}-${index}`}>
+                    {WEEKDAYS[schedule.weekday]}, {schedule.time} · {schedule.duration} min
+                  </div>
+                ))
+              ) : (
+                "Sem horário"
+              )}
             </div>
           </div>
           <button className="btn-ghost" onClick={() => setEditing(true)}>
@@ -369,13 +378,23 @@ const nextLessonId = normalLessons
             ) : null}
           </summary>
           <div className="space-y-3 px-4 pb-4">
-            <AnnualPlanList
-              state={state}
-              ctx={ctx}
-              onRemove={(id) =>
-                year && update((s) => mapCtx(s, year.id, studentId, (c) => ({ ...c, annualPlan: c.annualPlan.filter((p) => p.libraryItemId !== id) })))
-              }
-            />
+            {ctx && (
+              <AnnualPlanList
+                state={state}
+                ctx={ctx}
+                onRemove={(id) =>
+                  year &&
+                  update((s) =>
+                    mapCtx(s, year.id, studentId, (c) => ({
+                      ...c,
+                      annualPlan: c.annualPlan.filter(
+                        (p) => p.libraryItemId !== id,
+                      ),
+                    })),
+                  )
+                }
+              />
+            )}
             {ctx && year && (
               <LibrarySearch
                 placeholder="Adicionar ao plano…"

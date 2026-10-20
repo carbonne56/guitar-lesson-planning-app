@@ -32,7 +32,7 @@ export function LibrarySearch({
     if (!nq) return [];
     return state.library
       .filter((i) => !excludeIds.includes(i.id) && norm(i.name).includes(nq))
-      .slice(0, 8);
+      .slice(0, 30);
   }, [q, state.library, excludeIds]);
 
   const exact = state.library.some((i) => norm(i.name) === norm(q));
@@ -64,7 +64,7 @@ export function LibrarySearch({
         }}
       />
       {q.trim() && (
-        <div className="surface absolute inset-x-0 top-11 z-30 overflow-hidden shadow-lg">
+        <div className="surface absolute inset-x-0 top-11 z-30 max-h-80 overflow-y-auto shadow-lg">
           {results.map((i) => (
             <button
               key={i.id}

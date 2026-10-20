@@ -19,7 +19,7 @@ export function toISO(d: Date): ISODate {
 }
 
 export function parseISO(s: ISODate): Date {
-  const [y, m, d] = s.split("-").map(Number);
+  const [y = 0, m = 1, d = 1] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 

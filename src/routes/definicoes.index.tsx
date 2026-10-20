@@ -22,37 +22,37 @@ function validateBackup(backup: unknown): backup is Backup {
 
   const raw = backup as Record<string, unknown>;
 
-  if (raw.app !== APP_ID) {
+  if (raw["app"] !== APP_ID) {
     return false;
   }
 
-  if (raw.version !== EXPORT_VERSION) {
+  if (raw["version"] !== EXPORT_VERSION) {
     return false;
   }
 
-  if (!raw.state || typeof raw.state !== "object") {
+  if (!raw["state"] || typeof raw["state"] !== "object") {
     return false;
   }
 
-  const state = raw.state as Record<string, unknown>;
+  const state = raw["state"] as Record<string, unknown>;
 
-  if (state.version !== 1) {
+  if (state["version"] !== 1) {
     return false;
   }
 
-  if (!Array.isArray(state.students)) {
+  if (!Array.isArray(state["students"])) {
     return false;
   }
 
-  if (!Array.isArray(state.schoolYears)) {
+  if (!Array.isArray(state["schoolYears"])) {
     return false;
   }
 
-  if (!Array.isArray(state.library)) {
+  if (!Array.isArray(state["library"])) {
     return false;
   }
 
-  if (!state.settings || typeof state.settings !== "object") {
+  if (!state["settings"] || typeof state["settings"] !== "object") {
     return false;
   }
 

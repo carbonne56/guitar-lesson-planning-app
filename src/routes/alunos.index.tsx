@@ -89,7 +89,13 @@ function Alunos() {
               <span className="ml-auto flex shrink-0 gap-2 text-xs text-muted-foreground tabular-nums">
                 <span>{age != null ? age : "—"}</span>
                 <span className="w-7">{grade || "—"}</span>
-                <span className="w-7">{s.schedule ? WEEKDAYS_SHORT[s.schedule.weekday] : "—"}</span>
+                <span className="max-w-28 truncate text-right">
+                  {s.schedules.length > 0
+                    ? s.schedules
+                        .map((schedule) => WEEKDAYS_SHORT[schedule.weekday] ?? "—")
+                        .join(", ")
+                    : "—"}
+                </span>
               </span>
             </Link>
             <button

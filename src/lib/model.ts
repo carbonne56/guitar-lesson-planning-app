@@ -13,7 +13,7 @@ export interface Student {
   name: string;
   birthDate: ISODate | null;
   active: boolean; // only source of truth for active status
-  schedule: Schedule | null; // current rule for future lessons
+  schedules: Schedule[];
 }
 
 export interface LibraryItem {
@@ -58,7 +58,7 @@ export interface PlanEntry {
 export interface YearStudent {
   studentId: string;
   grade: string;
-  schedule: Schedule | null; // snapshot used for this year's generation
+  schedules: Schedule[];
   created: boolean;
   annualPlan: PlanEntry[];
   lessons: Lesson[];
@@ -102,11 +102,13 @@ export interface SchoolYear {
 }
 
 export interface AppState {
-  version: 1;
+  version: 2;
   students: Student[];
   schoolYears: SchoolYear[];
   library: LibraryItem[];
-  settings: { activeSchoolYearId: string | null };
+  settings: {
+    activeSchoolYearId: string | null;
+  };
 }
 
 export function newId(prefix: string): string {

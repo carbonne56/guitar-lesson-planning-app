@@ -38,23 +38,29 @@ function Calendario() {
     update((state) => generateLessonsForAllStudents(state, year.id));
   };
 
+  
   const generationCandidates = year
-    ? year.students
-        .map((ctx) => {
-          const student = state.students.find((s) => s.id === ctx.studentId);
-          if (!student || ctx.created || !student.active || !student.schedule) return null;
+    ? year.students.flatMap((ctx) => {
+        const student = state.students.find((s) => s.id === ctx.studentId);
 
-          return {
+        if (
+          !student ||
+          ctx.created ||
+          !student.active ||
+          student.schedules.length === 0
+        ) {
+          return [];
+        }
+
+        return [
+          {
             name: student.name,
-            weekday: student.schedule.weekday,
-            time: student.schedule.time,
-          };
-        })
-        .filter(
-          (student): student is { name: string; weekday: number; time: string } =>
-            student !== null,
-        )
+            schedules: student.schedules,
+          },
+        ];
+      })
     : [];
+
 
   const generatedCount = year
     ? year.students.filter((ctx) => ctx.created).length
@@ -66,7 +72,7 @@ function Calendario() {
 
         const student = state.students.find((s) => s.id === ctx.studentId);
 
-        return !student || !student.active || !student.schedule;
+        return !student || !student.active || student.schedules.length === 0;
       }).length
     : 0;
 
@@ -353,15 +359,23 @@ function Calendario() {
                 <div>
                   <div className="eyebrow mb-2">Aulas a gerar</div>
 
+                                    
                   <ul className="space-y-1.5 text-sm">
                     {generationCandidates.map((student) => (
                       <li key={student.name}>
-                        {student.name} —{" "}
-                        {WEEKDAYS[student.weekday].replace("-feira", "")},{" "}
-                        {student.time}
+                        <span className="font-medium">{student.name}</span>
+                        <ul className="ml-3 text-muted-foreground">
+                          {student.schedules.map((schedule, index) => (
+                            <li key={`${student.name}-${schedule.weekday}-${schedule.time}-${index}`}>
+                              {WEEKDAYS[schedule.weekday]?.replace("-feira", "") ?? "Dia desconhecido"},{" "}
+                              {schedule.time} · {schedule.duration} min
+                            </li>
+                          ))}
+                        </ul>
                       </li>
                     ))}
                   </ul>
+
                 </div>
 
                 <p className="text-sm text-muted-foreground">
@@ -758,7 +772,7 @@ function EventProgramDialog({
 }) {
 
   const { update } = useStore();
-  
+
   const event = year.events.find((item) => item.id === eventId);
 
   if (!event) return null;
@@ -830,6 +844,7 @@ function EventProgramDialog({
 
                                   const program = [...currentEvent.program];
                                   const [moved] = program.splice(fromIndex, 1);
+                                  if (!moved) return currentEvent;
                                   program.splice(toIndex, 0, moved);
 
                                   return {

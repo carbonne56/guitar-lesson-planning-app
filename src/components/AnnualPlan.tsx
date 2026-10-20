@@ -42,7 +42,7 @@ export function AnnualPlanList({
 
           <ul className="divide-y">
             {list.map((i) => {
-              const n = summaryUsage(ctx, i.id);
+              const n = ctx ? summaryUsage(ctx, i.id) : 0;
 
               return (
                 <li

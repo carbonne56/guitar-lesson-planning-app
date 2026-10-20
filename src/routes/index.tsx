@@ -7,7 +7,7 @@ import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
   validateSearch: (s: Record<string, unknown>): { d?: string } =>
-    typeof s.d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.d) ? { d: s.d } : {},
+    typeof s["d"] === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s["d"]) ? { d: s["d"] } : {},
   head: () => ({
     meta: [
       { title: "Hoje — Aulas de Guitarra" },
