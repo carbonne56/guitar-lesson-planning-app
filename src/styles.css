@@ -73,7 +73,8 @@
   --radius: 0.75rem;
   --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Bricolage Grotesque", "Figtree", ui-sans-serif, sans-serif;
-  --background: oklch(0.982 0.006 85);
+  /* --background: oklch(0.982 0.006 85); */
+  --background: oklch(79.379% 0.09795 130.8);
   --foreground: oklch(0.24 0.02 60);
   --card: oklch(0.997 0.003 85);
   --card-foreground: oklch(0.24 0.02 60);
@@ -225,6 +226,14 @@
 
 .lesson-card[data-tone="absence"]::before {
   @apply bg-absence;
+}
+
+.lesson-card.lesson-past {
+  @apply bg-secondary;
+}
+
+.lesson-card.lesson-next {
+  @apply border-2 border-primary/50 bg-card;
 }
 
 @utility event-row {

@@ -5,7 +5,7 @@ import { AnnualPlanList } from "@/components/AnnualPlan";
 import { LessonCard } from "@/components/LessonCard";
 import { LibrarySearch } from "@/components/LibrarySearch";
 import { StudentForm } from "@/components/StudentForm";
-import { WEEKDAYS, ageFrom, formatShort, todayISO } from "@/lib/dates";
+import { WEEKDAYS, WEEKDAYS_SHORT, ageFrom, formatShort, todayISO, weekdayOf } from "@/lib/dates";
 import { newId } from "@/lib/model";
 import { activeYear, getStudent, lessonStats, sortLessons, yearContext } from "@/lib/selectors";
 import { mapCtx, useStore } from "@/lib/store";
@@ -41,12 +41,34 @@ function StudentPage() {
     event.program.some((entry) => entry.studentId === studentId),
   );
 
+  const normalLessons = lessons.filter(
+  (lesson) => lesson.type === "normal",
+);
+
+const nextLessonId = normalLessons
+  .filter((lesson) => {
+    if (lesson.date > todayISO()) return true;
+    if (lesson.date < todayISO()) return false;
+    return lesson.time >= new Date().toTimeString().slice(0, 5);
+  })
+  .sort((a, b) => {
+    const dateTimeA = `${a.date}T${a.time}`;
+    const dateTimeB = `${b.date}T${b.time}`;
+    return dateTimeA.localeCompare(dateTimeB);
+  })[0]?.id;
+
   const timeline = [
     ...lessons.map((lesson) => ({
       type: "lesson" as const,
       date: lesson.date,
       time: lesson.time,
       lesson,
+      timeStatus:
+        lesson.date < todayISO()
+          ? ("past" as const)
+          : lesson.id === nextLessonId
+            ? ("next" as const)
+            : ("future" as const),
     })),
     ...enrolledEvents.map((event) => ({
       type: "event" as const,
@@ -378,6 +400,7 @@ function StudentPage() {
               lesson={item.lesson}
               student={student}
               showStudent={false}
+              timeStatus={item.timeStatus}
             />
           ) : (
             <div
@@ -385,13 +408,31 @@ function StudentPage() {
               className="rounded-xl border-2 border-primary bg-primary/10 p-4"
             >
               <div className="text-sm text-muted-foreground">
-                {formatShort(item.event.date)}
+                {WEEKDAYS_SHORT[weekdayOf(item.event.date)]}, {formatShort(item.event.date)}
               </div>
+
               <div className="mt-1 font-semibold">
                 {item.event.name}
               </div>
-              <div className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Evento
+
+              <div className="mt-2 space-y-0.5">
+                {item.event.program
+                  .filter((entry) => entry.studentId === studentId)
+                  .map((entry) => {
+                    const libraryItem = state.library.find(
+                      (libraryItem) =>
+                        libraryItem.id === entry.libraryItemId,
+                    );
+
+                    return (
+                      <div
+                        key={entry.id}
+                        className="text-sm italic"
+                      >
+                        {libraryItem?.name ?? "Elemento removido"}
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           ),

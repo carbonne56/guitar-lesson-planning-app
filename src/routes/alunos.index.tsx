@@ -79,12 +79,17 @@ function Alunos() {
       <ul className="surface divide-y">
         {rows.map(({ s, age, grade }) => (
           <li key={s.id} className={`flex items-center gap-3 px-4 py-2.5 ${s.active ? "" : "opacity-55"}`}>
-            <Link to="/alunos/$studentId" params={{ studentId: s.id }} className="flex min-w-0 flex-1 items-baseline gap-3">
+            <Link
+              to="/alunos/$studentId"
+              params={{ studentId: s.id }}
+              className="flex min-w-0 flex-1 items-baseline gap-2"
+            >
               <span className="truncate font-medium">{s.name}</span>
-              <span className="ml-auto flex shrink-0 gap-3 text-sm text-muted-foreground tabular-nums">
-                <span>{age != null ? `${age} anos` : "—"}</span>
-                <span className="w-8">{grade || "—"}</span>
-                <span className="w-8">{s.schedule ? WEEKDAYS_SHORT[s.schedule.weekday] : "—"}</span>
+
+              <span className="ml-auto flex shrink-0 gap-2 text-xs text-muted-foreground tabular-nums">
+                <span>{age != null ? age : "—"}</span>
+                <span className="w-7">{grade || "—"}</span>
+                <span className="w-7">{s.schedule ? WEEKDAYS_SHORT[s.schedule.weekday] : "—"}</span>
               </span>
             </Link>
             <button

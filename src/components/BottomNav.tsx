@@ -1,11 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { BookOpen, CalendarDays, Sun, Users } from "lucide-react";
+import { BookOpen, CalendarDays, Settings, Sun, Users } from "lucide-react";
 
 const items = [
   { to: "/", label: "Hoje", icon: Sun, exact: true },
   { to: "/alunos", label: "Alunos", icon: Users, exact: false },
   { to: "/biblioteca", label: "Biblioteca", icon: BookOpen, exact: false },
   { to: "/calendario", label: "Calendário", icon: CalendarDays, exact: false },
+  { to: "/definicoes", label: "Definições", icon: Settings, exact: false },
 ] as const;
 
 export function BottomNav() {

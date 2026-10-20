@@ -10,15 +10,22 @@ export function LessonCard({
   lesson,
   student,
   showStudent = true,
+  timeStatus,
 }: {
   lesson: Lesson;
   student: Student;
   showStudent?: boolean;
+  timeStatus?: "past" | "next" | "future";
 }) {
   const tone = lesson.status === "absence" ? "absence" : lesson.type !== "normal" ? "moved" : "default";
   const summary = lesson.summary;
   return (
-    <Link to="/aulas/$lessonId" params={{ lessonId: lesson.id }} className="lesson-card" data-tone={tone}>
+    <Link
+      to="/aulas/$lessonId"
+      params={{ lessonId: lesson.id }}
+      className={`lesson-card ${timeStatus ? `lesson-${timeStatus}` : ""}`}
+      data-tone={tone}
+    >
       <div className="flex items-baseline justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate font-semibold">
