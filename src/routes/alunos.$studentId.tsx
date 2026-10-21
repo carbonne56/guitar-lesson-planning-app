@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { ChevronLeft, Pencil, Plus } from "lucide-react";
 import { AnnualPlanList } from "@/components/AnnualPlan";
 import { LessonCard } from "@/components/LessonCard";
 import { LibrarySearch } from "@/components/LibrarySearch";
@@ -9,6 +9,13 @@ import { WEEKDAYS, WEEKDAYS_SHORT, ageFrom, formatShort, todayISO, weekdayOf } f
 import { newId } from "@/lib/model";
 import { activeYear, getStudent, lessonStats, sortLessons, yearContext } from "@/lib/selectors";
 import { mapCtx, useStore } from "@/lib/store";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/alunos/$studentId")({
   head: () => ({
@@ -28,7 +35,10 @@ function StudentPage() {
   const { studentId } = Route.useParams();
   const { state, update } = useStore();
   const [editing, setEditing] = useState(false);
+  const [showExtraDialog, setShowExtraDialog] = useState(false);
   const [extraDate, setExtraDate] = useState("");
+  const [extraTime, setExtraTime] = useState("16:00");
+  const [extraDuration, setExtraDuration] = useState(45);
   const student = getStudent(state, studentId);
   if (!student) throw notFound();
   const year = activeYear(state);
@@ -119,9 +129,12 @@ const nextLessonId = normalLessons
     }));
   };
 
+  
   const addExtra = () => {
-    if (!year || !extraDate) return;
+    if (!year || !extraDate || !extraTime) return;
+
     ensureCtx();
+
     update((s) =>
       mapCtx(s, year.id, studentId, (c) => ({
         ...c,
@@ -130,8 +143,8 @@ const nextLessonId = normalLessons
           {
             id: newId("lesson"),
             date: extraDate,
-            time: student.schedules[0]?.time ?? "16:00",
-            duration: student.schedules[0]?.duration ?? 45,
+            time: extraTime,
+            duration: extraDuration,
             type: "extra",
             status: "completed",
             blocked: false,
@@ -143,8 +156,10 @@ const nextLessonId = normalLessons
         ],
       })),
     );
+
     setExtraDate("");
   };
+
   const copyAnnualPlan = async () => {
     if (!ctx) return;
 
@@ -458,6 +473,7 @@ const nextLessonId = normalLessons
         )}
       </div>
 
+            
       {!timeline.length && (
         <p className="text-sm text-muted-foreground">
           Ainda sem aulas ou eventos neste ano letivo.
@@ -465,16 +481,113 @@ const nextLessonId = normalLessons
       )}
 
       {year && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted-foreground">＋ Adicionar aula…</span>
-          <input type="date" className="field h-9 w-auto" value={extraDate} min={year.startDate} max={year.endDate} onChange={(e) => setExtraDate(e.target.value)} />
-          <button className="btn-soft" disabled={!extraDate} onClick={addExtra}>
-            Adicionar
+        <div className="mt-4">
+          <button
+            type="button"
+            className="btn-soft"
+            onClick={() => {
+              setExtraDate("");
+              setExtraTime("16:00");
+              setExtraDuration(45);
+              setShowExtraDialog(true);
+            }}
+          >
+            <Plus className="size-4" />
+            Adicionar aula extra
           </button>
+
+          <Dialog
+            open={showExtraDialog}
+            onOpenChange={setShowExtraDialog}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Adicionar aula extra</DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium" htmlFor="extra-date">
+                    Data
+                  </label>
+                  <input
+                    id="extra-date"
+                    type="date"
+                    className="field w-full"
+                    value={extraDate}
+                    min={year.startDate}
+                    max={year.endDate}
+                    onChange={(e) => setExtraDate(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium" htmlFor="extra-time">
+                      Hora de início
+                    </label>
+                    <input
+                      id="extra-time"
+                      type="time"
+                      className="field w-full"
+                      value={extraTime}
+                      onChange={(e) => setExtraTime(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label
+                      className="text-sm font-medium"
+                      htmlFor="extra-duration"
+                    >
+                      Duração
+                    </label>
+                    <select
+                      id="extra-duration"
+                      className="field w-full"
+                      value={extraDuration}
+                      onChange={(e) => setExtraDuration(Number(e.target.value))}
+                    >
+                      <option value={30}>30 minutos</option>
+                      <option value={45}>45 minutos</option>
+                      <option value={50}>50 minutos</option>
+                      <option value={60}>60 minutos</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowExtraDialog(false)}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={!extraDate || !extraTime}
+                  onClick={() => {
+                    addExtra();
+                    setShowExtraDialog(false);
+                  }}
+                >
+                  Adicionar aula
+                </button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       )}
 
-      {editing && <StudentForm open onOpenChange={setEditing} student={student} />}
+
+      {editing && (
+        <StudentForm open onOpenChange={setEditing} student={student} />
+      )}
+
     </main>
   );
 }
