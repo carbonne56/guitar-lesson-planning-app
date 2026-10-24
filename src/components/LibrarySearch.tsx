@@ -64,7 +64,7 @@ export function LibrarySearch({
         }}
       />
       {q.trim() && (
-        <div className="surface absolute inset-x-0 top-11 z-30 max-h-80 overflow-y-auto shadow-lg">
+        <div className="surface absolute inset-x-0 top-11 z-50 max-h-[min(20rem,calc(100dvh-12rem))] overflow-y-auto overscroll-contain shadow-lg">
           {results.map((i) => (
             <button
               key={i.id}

@@ -499,7 +499,7 @@ function Definicoes() {
         open={confirmScheduleImport}
         onOpenChange={setConfirmScheduleImport}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Confirmar importação de horários</DialogTitle>
           </DialogHeader>
