@@ -767,7 +767,11 @@ function Definicoes() {
           )}
 
           <div className="flex justify-end gap-2">
-            <button type="button" className="btn-secondary" onClick={cancelBackupImport}>
+            <button type="button" className="btn-secondary" onClick={() => {
+                setPendingImport(null);
+                setPendingPartialImport(null);
+              }}
+            >
               Cancelar
             </button>
 
@@ -784,37 +788,41 @@ function Definicoes() {
       </Dialog>
 
       <Dialog open={confirmScheduleImport} onOpenChange={setConfirmScheduleImport}>
-        <DialogContent className="max-h-[85dvh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[85dvh] flex-col overflow-hidden">
+            <DialogHeader className="shrink-0">
             <DialogTitle>Confirmar importação de horários</DialogTitle>
-          </DialogHeader>
+            </DialogHeader>
 
-          <p className="text-sm text-muted-foreground">
-            Serão integrados {schedulePreview?.totalPeople ?? 0} alunos no
-            ano letivo ativo. Os alunos que não constam do JSON não serão
-            alterados. Esta operação não substitui a cópia de segurança nem
-            gera automaticamente aulas para alunos novos.
-          </p>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+            <p className="text-sm text-muted-foreground">
+                Serão integrados {schedulePreview?.totalPeople ?? 0} alunos no
+                ano letivo ativo. Os alunos que não constam do JSON não serão
+                alterados. Esta operação não substitui a cópia de segurança nem
+                gera automaticamente aulas para alunos novos.
+            </p>
 
-          <div className="flex justify-end gap-2">
+            {/* Mantém aqui a lista de alunos que já tens no diálogo, se existir. */}
+            </div>
+
+            <div className="flex shrink-0 justify-end gap-2 border-t pt-4">
             <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setConfirmScheduleImport(false)}
+                type="button"
+                className="btn-secondary"
+                onClick={() => setConfirmScheduleImport(false)}
             >
-              Cancelar
+                Cancelar
             </button>
 
             <button
-              type="button"
-              className="btn-primary"
-              onClick={confirmScheduleImportAction}
+                type="button"
+                className="btn-primary"
+                onClick={confirmScheduleImportAction}
             >
-              Importar horários
+                Importar horários
             </button>
-          </div>
+            </div>
         </DialogContent>
-      </Dialog>
+        </Dialog>
     </main>
   );
 }
