@@ -44,11 +44,9 @@ export interface Lesson {
   // Free text written by the teacher.
   objectives: string;
   summary: string;
-
-  // Structured record of library elements selected for this lesson.
-  // These are independent from the text itself.
   objectiveLibraryItemIds: string[];
   summaryLibraryItemIds: string[];
+  updatedAt?: string;
 }
 
 export interface PlanEntry {

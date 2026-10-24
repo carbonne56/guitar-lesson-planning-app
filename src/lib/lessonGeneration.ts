@@ -61,6 +61,7 @@ function createLessonsForSchedule(
 
   const lessons = dates.map((date) => ({
     id: newId("lesson"),
+    updatedAt: new Date().toISOString(),
     date,
     time: schedule.time,
     duration: schedule.duration,
@@ -88,6 +89,7 @@ function createLessonsForSchedule(
   return [
     {
       id: newId("lesson"),
+      updatedAt: new Date().toISOString(),
       date: previousMarginDate,
       time: schedule.time,
       duration: schedule.duration,
@@ -102,6 +104,7 @@ function createLessonsForSchedule(
     ...lessons,
     {
       id: newId("lesson"),
+      updatedAt: new Date().toISOString(),
       date: nextMarginDate,
       time: schedule.time,
       duration: schedule.duration,
@@ -344,13 +347,16 @@ export function reviewLessonsForStudent(
                     })),
                     lessons: [
                       ...context.lessons
-                        .filter(
-                          (lesson) => !lessonsToRemove.has(lesson.id),
-                        )
+                        .filter((lesson) => !lessonsToRemove.has(lesson.id))
                         .map((lesson) => {
                           const changes = lessonUpdates.get(lesson.id);
+
                           return changes
-                            ? { ...lesson, ...changes }
+                            ? {
+                                ...lesson,
+                                ...changes,
+                                updatedAt: new Date().toISOString(),
+                              }
                             : lesson;
                         }),
                       ...addedLessons,

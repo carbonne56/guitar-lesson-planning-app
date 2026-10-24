@@ -129,7 +129,6 @@ const nextLessonId = normalLessons
     }));
   };
 
-  
   const addExtra = () => {
     if (!year || !extraDate || !extraTime) return;
 
@@ -142,6 +141,7 @@ const nextLessonId = normalLessons
           ...c.lessons,
           {
             id: newId("lesson"),
+            updatedAt: new Date().toISOString(),
             date: extraDate,
             time: extraTime,
             duration: extraDuration,

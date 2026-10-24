@@ -57,7 +57,19 @@ export function mapLesson(s: AppState, lessonId: string, fn: (l: Lesson) => Less
       ...y,
       students: y.students.map((c) =>
         c.lessons.some((l) => l.id === lessonId)
-          ? { ...c, lessons: c.lessons.map((l) => (l.id === lessonId ? fn(l) : l)) }
+          ? {
+              ...c,
+              lessons: c.lessons.map((l) => {
+                if (l.id !== lessonId) return l;
+
+                const updatedLesson = fn(l);
+
+                return {
+                  ...updatedLesson,
+                  updatedAt: new Date().toISOString(),
+                };
+              }),
+            }
           : c,
       ),
     })),

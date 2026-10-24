@@ -5,7 +5,7 @@ import { createSeed } from "./seed";
 const KEY = "guitarra-aulas:v1";
 const DATA_VERSION = 2;
 
-function migrateLesson(lesson: Lesson): Lesson {
+function migrateLesson(lesson: Lesson, baselineTimestamp: string): Lesson {
   const raw = lesson as unknown as Record<string, unknown>;
 
   return {
@@ -30,8 +30,14 @@ function migrateLesson(lesson: Lesson): Lesson {
             (id): id is string => typeof id === "string",
           )
         : [],
+    updatedAt:
+      typeof raw["updatedAt"] === "string" &&
+      !Number.isNaN(Date.parse(raw["updatedAt"]))
+        ? raw["updatedAt"]
+        : baselineTimestamp,
   };
 }
+
 
 function migrateSchedule(raw: unknown): Schedule[] {
   if (
@@ -106,6 +112,7 @@ function migrateV1ToV2(
 
 function migrateState(state: AppState): AppState {
   const seed = createSeed();
+  const baselineTimestamp = new Date().toISOString();
 
   const existingLibraryIds = new Set(
     state.library.map((item) => item.id),
@@ -123,7 +130,7 @@ function migrateState(state: AppState): AppState {
       ...year,
       students: year.students.map((ctx) => ({
         ...ctx,
-        lessons: ctx.lessons.map(migrateLesson),
+        lessons: ctx.lessons.map((lesson) => migrateLesson(lesson, baselineTimestamp)),
       })),
     })),
   };

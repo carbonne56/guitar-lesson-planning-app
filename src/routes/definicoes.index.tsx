@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { AppState } from "@/lib/model";
+import type { AppState, Lesson } from "@/lib/model";
 import { useStore } from "@/lib/store";
 import {
   applyTeacherScheduleImport,
@@ -24,19 +24,37 @@ const EXPORT_VERSION = 1;
 
 type Backup = {
   app: string;
+  transferType?: "full-backup";
   version: number;
   exportedAt: string;
   state: AppState;
 };
 
+type PartialLessonTransfer = {
+  app: string;
+  transferType: "partial-lessons";
+  version: number;
+  exportedAt: string;
+  since: string;
+  schoolYears: {
+    id: string;
+    students: {
+      studentId: string;
+      lessons: Lesson[];
+    }[];
+  }[];
+};
+
 function validateBackup(backup: unknown): backup is Backup {
-  if (!backup || typeof backup !== "object") {
-    return false;
-  }
+  if (!backup || typeof backup !== "object") return false;
 
   const raw = backup as Record<string, unknown>;
 
-  if (raw["app"] !== APP_ID || raw["version"] !== EXPORT_VERSION) {
+  if (
+    raw["app"] !== APP_ID ||
+    raw["version"] !== EXPORT_VERSION ||
+    (raw["transferType"] !== undefined && raw["transferType"] !== "full-backup")
+  ) {
     return false;
   }
 
@@ -54,6 +72,66 @@ function validateBackup(backup: unknown): backup is Backup {
     !!state["settings"] &&
     typeof state["settings"] === "object"
   );
+}
+
+function validatePartialLessonTransfer(
+  value: unknown,
+): value is PartialLessonTransfer {
+  if (!value || typeof value !== "object") return false;
+
+  const raw = value as Record<string, unknown>;
+
+  if (
+    raw["app"] !== APP_ID ||
+    raw["transferType"] !== "partial-lessons" ||
+    raw["version"] !== EXPORT_VERSION ||
+    typeof raw["exportedAt"] !== "string" ||
+    typeof raw["since"] !== "string" ||
+    Number.isNaN(Date.parse(raw["since"] as string)) ||
+    !Array.isArray(raw["schoolYears"])
+  ) {
+    return false;
+  }
+
+  return raw["schoolYears"].every((year: unknown) => {
+    if (!year || typeof year !== "object") return false;
+
+    const yearData = year as Record<string, unknown>;
+
+    if (
+      typeof yearData["id"] !== "string" ||
+      !Array.isArray(yearData["students"])
+    ) {
+      return false;
+    }
+
+    return yearData["students"].every((student: unknown) => {
+      if (!student || typeof student !== "object") return false;
+
+      const studentData = student as Record<string, unknown>;
+
+      if (
+        typeof studentData["studentId"] !== "string" ||
+        !Array.isArray(studentData["lessons"])
+      ) {
+        return false;
+      }
+
+      return studentData["lessons"].every((lesson: unknown) => {
+        if (!lesson || typeof lesson !== "object") return false;
+
+        const lessonData = lesson as Record<string, unknown>;
+
+        return (
+          typeof lessonData["id"] === "string" &&
+          typeof lessonData["date"] === "string" &&
+          typeof lessonData["time"] === "string" &&
+          typeof lessonData["updatedAt"] === "string" &&
+          !Number.isNaN(Date.parse(lessonData["updatedAt"] as string))
+        );
+      });
+    });
+  });
 }
 
 export const Route = createFileRoute("/definicoes/")({
@@ -86,6 +164,11 @@ function Definicoes() {
   const [pendingImport, setPendingImport] = useState<AppState | null>(null);
   const [importError, setImportError] = useState("");
 
+  const [partialSince, setPartialSince] = useState("");
+  const [pendingPartialImport, setPendingPartialImport] = useState<PartialLessonTransfer | null>(
+    null,
+  );
+
   // Importação de horários do teacher-schedule.
   const [scheduleText, setScheduleText] = useState("");
   const [includeWaiting, setIncludeWaiting] = useState(false);
@@ -99,13 +182,12 @@ function Definicoes() {
   const [confirmScheduleImport, setConfirmScheduleImport] = useState(false);
 
   const activeYearId = state.settings.activeSchoolYearId;
-  const activeYear = state.schoolYears.find(
-    (year) => year.id === activeYearId,
-  );
+  const activeYear = state.schoolYears.find((year) => year.id === activeYearId);
 
   const handleExport = async () => {
     const backup = {
       app: APP_ID,
+      transferType: "full-backup",
       version: EXPORT_VERSION,
       exportedAt: new Date().toISOString(),
       state,
@@ -119,27 +201,139 @@ function Definicoes() {
     }
   };
 
-  const handleImport = () => {
-    setImportError("");
+
+    const handlePartialExport = async () => {
+    if (!partialSince) {
+        setMessage("Seleciona a data e hora de referência.");
+        return;
+    }
+
+    const sinceDate = new Date(partialSince);
+
+    if (Number.isNaN(sinceDate.getTime())) {
+        setMessage("A data de referência não é válida.");
+        return;
+    }
+
+    const since = sinceDate.toISOString();
+
+    const schoolYears = state.schoolYears
+        .map((year) => ({
+        id: year.id,
+        students: year.students
+            .map((ctx) => ({
+            studentId: ctx.studentId,
+            lessons: ctx.lessons.filter(
+                (lesson) =>
+                typeof lesson.updatedAt === "string" &&
+                !Number.isNaN(Date.parse(lesson.updatedAt)) &&
+                lesson.updatedAt > since,
+            ),
+            }))
+            .filter((ctx) => ctx.lessons.length > 0),
+        }))
+        .filter((year) => year.students.length > 0);
+
+    const transfer: PartialLessonTransfer = {
+        app: APP_ID,
+        transferType: "partial-lessons",
+        version: EXPORT_VERSION,
+        exportedAt: new Date().toISOString(),
+        since,
+        schoolYears,
+    };
+
+    const lessonCount = schoolYears.reduce(
+        (total, year) =>
+        total +
+        year.students.reduce(
+            (yearTotal, ctx) => yearTotal + ctx.lessons.length,
+            0,
+        ),
+        0,
+    );
+
+    if (lessonCount === 0) {
+        setMessage("Não foram encontradas aulas alteradas após essa data.");
+        return;
+    }
 
     try {
-      const backup: unknown = JSON.parse(importText);
+        await navigator.clipboard.writeText(
+        JSON.stringify(transfer, null, 2),
+        );
+        setMessage(`${lessonCount} aulas copiadas para o clipboard.`);
+    } catch {
+        setMessage("Não foi possível copiar os dados.");
+    }
+    };
 
-      if (!validateBackup(backup)) {
-        throw new Error("Os dados não são válidos ou não pertencem a esta aplicação.");
+
+  const handleImport = () => {
+  setImportError("");
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(importText);
+  } catch {
+    setImportError("O texto não contém JSON válido.");
+    return;
+  }
+
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    "transferType" in parsed &&
+    parsed.transferType === "partial-lessons"
+  ) {
+    if (!validatePartialLessonTransfer(parsed)) {
+      setImportError("A transferência parcial não tem um formato válido.");
+      return;
+    }
+
+    // Verificar se todos os anos e alunos existem no destino.
+    for (const year of parsed.schoolYears) {
+      const localYear = state.schoolYears.find(
+        (item) => item.id === year.id,
+      );
+
+      if (!localYear) {
+        setImportError(
+          `O ano letivo "${year.id}" não existe nesta aplicação. A importação foi cancelada.`,
+        );
+        return;
       }
 
-      setPendingImport(backup.state);
-    } catch (error) {
-      setImportError(
-        error instanceof SyntaxError
-          ? "O texto não contém JSON válido. Verifica se copiaste todos os dados."
-          : error instanceof Error
-            ? error.message
-            : "Não foi possível importar os dados.",
-      );
+      for (const student of year.students) {
+        const localStudent = localYear.students.find(
+          (item) => item.studentId === student.studentId,
+        );
+
+        if (!localStudent) {
+          setImportError(
+            `O aluno "${student.studentId}" não existe no ano letivo "${year.id}". A importação foi cancelada.`,
+          );
+          return;
+        }
+      }
     }
-  };
+
+    setPendingImport(null);
+    setPendingPartialImport(parsed);
+    return;
+  }
+
+  if (!validateBackup(parsed)) {
+    setImportError(
+      "O ficheiro não é uma cópia de segurança válida nem uma transferência parcial reconhecida.",
+    );
+    return;
+  }
+
+  setPendingPartialImport(null);
+  setPendingImport(parsed.state);
+};
 
   const confirmBackupImport = () => {
     if (!pendingImport) return;
@@ -151,6 +345,68 @@ function Definicoes() {
     setShowImport(false);
     setMessage("Dados importados com sucesso.");
   };
+
+  const confirmPartialImport = () => {
+  if (!pendingPartialImport) return;
+
+  const transfer = pendingPartialImport;
+
+  update((current) => ({
+    ...current,
+    schoolYears: current.schoolYears.map((year) => {
+      const incomingYear = transfer.schoolYears.find(
+        (item) => item.id === year.id,
+      );
+
+      if (!incomingYear) return year;
+
+      return {
+        ...year,
+        students: year.students.map((student) => {
+          const incomingStudent = incomingYear.students.find(
+            (item) => item.studentId === student.studentId,
+          );
+
+          if (!incomingStudent) return student;
+
+          const incomingLessons = incomingStudent.lessons;
+          const incomingIds = new Set(
+            incomingLessons.map((lesson) => lesson.id),
+          );
+
+          return {
+            ...student,
+            lessons: [
+              ...student.lessons.filter(
+                (lesson) => !incomingIds.has(lesson.id),
+              ),
+              ...incomingLessons,
+            ],
+          };
+        }),
+      };
+    }),
+  }));
+
+  const lessonCount = transfer.schoolYears.reduce(
+    (total, year) =>
+      total +
+      year.students.reduce(
+        (studentTotal, student) =>
+          studentTotal + student.lessons.length,
+        0,
+      ),
+    0,
+  );
+
+  setPendingPartialImport(null);
+  setShowImport(false);
+  setImportText("");
+  setImportError("");
+  setMessage(
+    `Importação concluída: ${lessonCount} aulas atualizadas ou acrescentadas.`,
+  );
+};
 
   const cancelBackupImport = () => {
     setPendingImport(null);
@@ -260,9 +516,29 @@ function Definicoes() {
               </button>
             </div>
 
-            {message && (
-              <p className="mt-3 text-sm text-muted-foreground">{message}</p>
-            )}
+            <div className="mt-5 border-t pt-4">
+              <h4 className="font-medium">Exportação parcial de aulas</h4>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Exporta as aulas alteradas depois da data e hora escolhidas.
+              </p>
+
+              <label className="mt-3 block text-sm font-medium">Alterações posteriores a</label>
+
+              <input
+                type="datetime-local"
+                className="field mt-1"
+                value={partialSince}
+                onChange={(event) => setPartialSince(event.target.value)}
+              />
+
+              <button type="button" className="btn-secondary mt-3" onClick={handlePartialExport}>
+                <Copy className="size-4" />
+                Exportar aulas alteradas
+              </button>
+            </div>
+
+            {message && <p className="mt-3 text-sm text-muted-foreground">{message}</p>}
           </div>
         </div>
       </section>
@@ -461,33 +737,45 @@ function Definicoes() {
       </Dialog>
 
       <Dialog
-        open={pendingImport !== null}
+        open={pendingImport !== null || pendingPartialImport !== null}
         onOpenChange={(open) => {
-          if (!open) cancelBackupImport();
+          if (!open) {
+            setPendingImport(null);
+            setPendingPartialImport(null);
+          }
         }}
       >
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmar importação da cópia de segurança</DialogTitle>
-          </DialogHeader>
+          <DialogTitle>
+            {pendingPartialImport
+              ? "Confirmar importação parcial de aulas"
+              : "Confirmar importação da cópia de segurança"}
+          </DialogTitle>
 
-          <p className="text-sm text-muted-foreground">
-            Importar estes dados irá substituir os dados atuais da aplicação.
-          </p>
+          {pendingPartialImport ? (
+            <p>
+              {pendingPartialImport.schoolYears.reduce(
+                (total, year) =>
+                  total + year.students.reduce((sum, student) => sum + student.lessons.length, 0),
+                0,
+              )}{" "}
+              aulas. As aulas correspondentes serão atualizadas e as novas serão acrescentadas. Os
+              restantes dados serão preservados.
+            </p>
+          ) : (
+            <p>Importar estes dados irá substituir os dados atuais da aplicação.</p>
+          )}
 
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={cancelBackupImport}
-            >
+            <button type="button" className="btn-secondary" onClick={cancelBackupImport}>
               Cancelar
             </button>
 
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={confirmBackupImport}
+            <button type="button" className="btn-primary" onClick={
+                pendingPartialImport
+                  ? confirmPartialImport
+                  : confirmBackupImport
+              }
             >
               Importar
             </button>
@@ -495,10 +783,7 @@ function Definicoes() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={confirmScheduleImport}
-        onOpenChange={setConfirmScheduleImport}
-      >
+      <Dialog open={confirmScheduleImport} onOpenChange={setConfirmScheduleImport}>
         <DialogContent className="max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Confirmar importação de horários</DialogTitle>
