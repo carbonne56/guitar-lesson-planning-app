@@ -276,7 +276,7 @@ function Calendario() {
               <div className="surface px-4 py-3 text-sm text-muted-foreground">
                 Ainda não foram definidos eventos.
               </div>
-            ) : (
+              ) : (
               <ul className="surface divide-y">
                 {[...year.events]
                   .sort((a, b) => a.date.localeCompare(b.date))
@@ -330,7 +330,7 @@ function Calendario() {
       {creating && <NewYearDialog onClose={() => setCreating(false)} />}
       {confirmingGeneration && year && (
         <Dialog open onOpenChange={(open) => !open && setConfirmingGeneration(false)}>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="flex max-h-[85dvh] max-w-sm flex-col">
             <DialogHeader>
               <DialogTitle>
                 Gerar aulas para {generationCandidates.length}{" "}
@@ -355,12 +355,12 @@ function Calendario() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div>
-                  <div className="eyebrow mb-2">Aulas a gerar</div>
+              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="eyebrow mb-2 shrink-0">Aulas a gerar</div>
 
                                     
-                  <ul className="space-y-1.5 text-sm">
+                  <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto text-sm">
                     {generationCandidates.map((student) => (
                       <li key={student.name}>
                         <span className="font-medium">{student.name}</span>
@@ -378,15 +378,15 @@ function Calendario() {
 
                 </div>
 
-                <p className="text-sm text-muted-foreground">
+                <p className="shrink-0 text-sm text-muted-foreground">
                   Já gerado: {generatedCount} · Inativo ou sem horário: {unavailableCount}
                 </p>
 
-                <p className="text-sm text-muted-foreground">
+                <p className="shrink-0 text-sm text-muted-foreground">
                   As aulas serão criadas até ao fim do ano letivo, respeitando férias e feriados.
                 </p>
 
-                <div className="flex justify-end gap-2">
+                <div className="flex shrink-0 justify-end gap-2">
                   <button
                     type="button"
                     className="btn-ghost"
@@ -779,12 +779,50 @@ function EventProgramDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="flex max-h-[85dvh] max-w-lg flex-col">
         <DialogHeader>
-          <DialogTitle>{event.name}</DialogTitle>
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle>{event.name}</DialogTitle>
+
+            <button
+              type="button"
+              className="btn-soft shrink-0"
+              onClick={async () => {
+                const programText = [
+                  event.name,
+                  formatLong(event.date),
+                  "",
+                  ...event.program.map((entry, index) => {
+                    const student = state.students.find(
+                      (item) => item.id === entry.studentId,
+                    );
+
+                    const libraryItem = state.library.find(
+                      (item) => item.id === entry.libraryItemId,
+                    );
+
+                    return `${student?.name ?? "Aluno removido"} — ${
+                      libraryItem?.name ?? "Elemento removido"
+                    }`;
+                  }),
+                ].join("\n");
+
+                try {
+                  await navigator.clipboard.writeText(programText);
+                  window.alert("Programa copiado!");
+                } catch {
+                  window.alert(
+                    "Não foi possível copiar o programa. Verifica as permissões do navegador.",
+                  );
+                }
+              }}
+            >
+              Copiar programa
+            </button>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
           <div className="text-sm text-muted-foreground">
             {formatLong(event.date)}
           </div>

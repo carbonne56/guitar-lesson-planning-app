@@ -215,7 +215,7 @@ const nextLessonId = normalLessons
       <div className="mb-6 grid gap-3 md:grid-cols-2">
         <details className="disclosure">
           <summary>Eventos</summary>
-          <ul className="space-y-3 px-4 pb-3">
+          <ul className="max-h-80 space-y-3 overflow-y-auto px-4 pb-3">
             {(year?.events ?? []).map((e) => {
               const programEntries = e.program.filter(
                 (entry) => entry.studentId === studentId,
@@ -239,7 +239,7 @@ const nextLessonId = normalLessons
                   </div>
 
                   {programEntries.length > 0 ? (
-                    <div className="mt-2 space-y-1 pl-2">
+                    <div className="mt-2 space-y-1 border-l-2 border-border pl-3">
                       {programEntries.map((entry) => {
                         const item = state.library.find(
                           (libraryItem) =>
@@ -297,12 +297,12 @@ const nextLessonId = normalLessons
                   )}
 
                   {ctx?.annualPlan.length ? (
-                    <details className="mt-2">
-                      <summary className="cursor-pointer text-xs font-medium text-accent-foreground">
+                    <details className="mt-3 border-t-2 border-border pt-3">
+                      <summary className="cursor-pointer rounded-md bg-secondary/60 px-2 py-2 text-xs font-medium text-accent-foreground">
                         ＋ Adicionar elemento
                       </summary>
 
-                      <div className="mt-2 space-y-1 pl-2">
+                      <div className="mt-2 space-y-1 rounded-md bg-muted p-2">
                         {ctx.annualPlan.map((planEntry) => {
                           const item = state.library.find(
                             (libraryItem) =>
