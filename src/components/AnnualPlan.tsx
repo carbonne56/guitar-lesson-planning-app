@@ -13,9 +13,14 @@ export function AnnualPlanList({
   onRemove?: (id: string) => void;
   onSelect?: (id: string) => void;
 }) {
-  const items = (ctx?.annualPlan ?? [])
-    .map((p) => state.library.find((l) => l.id === p.libraryItemId))
-    .filter((x): x is NonNullable<typeof x> => !!x);
+  const items = (ctx?.annualPlan ?? []).map(
+    (p) =>
+      state.library.find((l) => l.id === p.libraryItemId) ?? {
+        id: p.libraryItemId,
+        name: "Elemento eliminado da biblioteca",
+        category: "Elemento removido",
+      },
+  );
 
   if (!items.length) {
     return (

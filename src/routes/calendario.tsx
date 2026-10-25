@@ -802,7 +802,7 @@ function EventProgramDialog({
                     );
 
                     return `${student?.name ?? "Aluno removido"} — ${
-                      libraryItem?.name ?? "Elemento removido"
+                      libraryItem?.name ?? "Elemento removido da biblioteca"
                     }`;
                   }),
                 ].join("\n");
@@ -907,7 +907,7 @@ function EventProgramDialog({
                         </span>
 
                         <span className="block text-muted-foreground">
-                          {libraryItem?.name ?? "Elemento removido"}
+                          {libraryItem?.name ?? "Elemento removido da biblioteca"}
                         </span>
                       </span>
                     </div>

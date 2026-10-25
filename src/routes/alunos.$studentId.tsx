@@ -252,7 +252,7 @@ const nextLessonId = normalLessons
                             className="flex items-center gap-2 text-sm"
                           >
                             <span className="flex-1">
-                              {item?.name ?? "Elemento removido"}
+                              {item?.name ?? "Elemento removido da biblioteca"}
                             </span>
 
                             <button
@@ -474,7 +474,7 @@ const nextLessonId = normalLessons
                         key={entry.id}
                         className="text-sm italic"
                       >
-                        {libraryItem?.name ?? "Elemento removido"}
+                        {libraryItem?.name ?? "Elemento removido da biblioteca"}
                       </div>
                     );
                   })}
