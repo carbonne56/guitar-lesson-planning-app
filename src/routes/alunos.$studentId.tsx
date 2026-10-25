@@ -392,6 +392,7 @@ const nextLessonId = normalLessons
               </button>
             ) : null}
           </summary>
+
           <div className="space-y-3 px-4 pb-4">
             {ctx && (
               <AnnualPlanList
@@ -405,6 +406,7 @@ const nextLessonId = normalLessons
                       annualPlan: c.annualPlan.filter(
                         (p) => p.libraryItemId !== id,
                       ),
+                      annualPlanUpdatedAt: new Date().toISOString(),
                     })),
                   )
                 }
@@ -415,7 +417,16 @@ const nextLessonId = normalLessons
                 placeholder="Adicionar ao plano…"
                 excludeIds={ctx.annualPlan.map((p) => p.libraryItemId)}
                 onSelect={(item) =>
-                  update((s) => mapCtx(s, year.id, studentId, (c) => ({ ...c, annualPlan: [...c.annualPlan, { libraryItemId: item.id }] })))
+                  update((s) =>
+                    mapCtx(s, year.id, studentId, (c) => ({
+                      ...c,
+                      annualPlan: [
+                        ...c.annualPlan,
+                        { libraryItemId: item.id },
+                      ],
+                      annualPlanUpdatedAt: new Date().toISOString(),
+                    })),
+                  )
                 }
               />
             )}

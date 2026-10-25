@@ -130,7 +130,14 @@ function migrateState(state: AppState): AppState {
       ...year,
       students: year.students.map((ctx) => ({
         ...ctx,
-        lessons: ctx.lessons.map((lesson) => migrateLesson(lesson, baselineTimestamp)),
+        // annualPlanUpdatedAt:
+        //   typeof ctx.annualPlanUpdatedAt === "string" &&
+        //   !Number.isNaN(Date.parse(ctx.annualPlanUpdatedAt))
+        //     ? ctx.annualPlanUpdatedAt
+        //     : baselineTimestamp,
+        lessons: ctx.lessons.map((lesson) =>
+          migrateLesson(lesson, baselineTimestamp),
+        ),
       })),
     })),
   };

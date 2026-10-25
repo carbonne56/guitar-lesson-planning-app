@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { AppState, Lesson } from "@/lib/model";
+import type { AppState, Lesson, PlanEntry, LibraryItem } from "@/lib/model";
 import { useStore } from "@/lib/store";
 import {
   applyTeacherScheduleImport,
@@ -41,6 +41,9 @@ type PartialLessonTransfer = {
     students: {
       studentId: string;
       lessons: Lesson[];
+      annualPlan?: PlanEntry[];
+      annualPlanUpdatedAt?: string;
+      libraryItems?: LibraryItem[];
     }[];
   }[];
 };
@@ -73,6 +76,7 @@ function validateBackup(backup: unknown): backup is Backup {
     typeof state["settings"] === "object"
   );
 }
+
 
 function validatePartialLessonTransfer(
   value: unknown,
@@ -117,19 +121,66 @@ function validatePartialLessonTransfer(
         return false;
       }
 
-      return studentData["lessons"].every((lesson: unknown) => {
-        if (!lesson || typeof lesson !== "object") return false;
+      const validLessons = studentData["lessons"].every(
+        (lesson: unknown) => {
+          if (!lesson || typeof lesson !== "object") return false;
 
-        const lessonData = lesson as Record<string, unknown>;
+          const item = lesson as Record<string, unknown>;
 
-        return (
-          typeof lessonData["id"] === "string" &&
-          typeof lessonData["date"] === "string" &&
-          typeof lessonData["time"] === "string" &&
-          typeof lessonData["updatedAt"] === "string" &&
-          !Number.isNaN(Date.parse(lessonData["updatedAt"] as string))
-        );
-      });
+          return (
+            typeof item["id"] === "string" &&
+            typeof item["date"] === "string" &&
+            typeof item["time"] === "string" &&
+            typeof item["updatedAt"] === "string" &&
+            !Number.isNaN(Date.parse(item["updatedAt"] as string))
+          );
+        },
+      );
+
+      if (!validLessons) return false;
+
+      if (studentData["annualPlan"] !== undefined) {
+        if (!Array.isArray(studentData["annualPlan"])) return false;
+
+        if (
+          !studentData["annualPlan"].every(
+            (entry: unknown) =>
+              !!entry &&
+              typeof entry === "object" &&
+              typeof (entry as Record<string, unknown>)["libraryItemId"] ===
+                "string",
+          )
+        ) {
+          return false;
+        }
+
+        if (
+          typeof studentData["annualPlanUpdatedAt"] !== "string" ||
+          Number.isNaN(
+            Date.parse(studentData["annualPlanUpdatedAt"] as string),
+          )
+        ) {
+          return false;
+        }
+
+        if (
+          studentData["libraryItems"] !== undefined &&
+          (!Array.isArray(studentData["libraryItems"]) ||
+            !studentData["libraryItems"].every(
+              (item: unknown) =>
+                !!item &&
+                typeof item === "object" &&
+                typeof (item as Record<string, unknown>)["id"] === "string" &&
+                typeof (item as Record<string, unknown>)["name"] === "string" &&
+                typeof (item as Record<string, unknown>)["category"] ===
+                  "string",
+            ))
+        ) {
+          return false;
+        }
+      }
+
+      return true;
     });
   });
 }
@@ -201,72 +252,120 @@ function Definicoes() {
     }
   };
 
-
-    const handlePartialExport = async () => {
+  const handlePartialExport = async () => {
     if (!partialSince) {
-        setMessage("Seleciona a data e hora de referência.");
-        return;
+      setMessage("Seleciona a data e hora de referência.");
+      return;
     }
 
     const sinceDate = new Date(partialSince);
 
     if (Number.isNaN(sinceDate.getTime())) {
-        setMessage("A data de referência não é válida.");
-        return;
+      setMessage("A data de referência não é válida.");
+      return;
     }
 
     const since = sinceDate.toISOString();
 
     const schoolYears = state.schoolYears
-        .map((year) => ({
+      .map((year) => ({
         id: year.id,
         students: year.students
-            .map((ctx) => ({
-            studentId: ctx.studentId,
-            lessons: ctx.lessons.filter(
-                (lesson) =>
+          .map((ctx) => {
+            const lessons = ctx.lessons.filter(
+              (lesson) =>
                 typeof lesson.updatedAt === "string" &&
                 !Number.isNaN(Date.parse(lesson.updatedAt)) &&
                 lesson.updatedAt > since,
-            ),
-            }))
-            .filter((ctx) => ctx.lessons.length > 0),
-        }))
-        .filter((year) => year.students.length > 0);
+            );
 
-    const transfer: PartialLessonTransfer = {
-        app: APP_ID,
-        transferType: "partial-lessons",
-        version: EXPORT_VERSION,
-        exportedAt: new Date().toISOString(),
-        since,
-        schoolYears,
-    };
+            // Só consideramos o plano quando este foi alterado
+            // depois da data de referência.
+            const planChanged =
+              typeof ctx.annualPlanUpdatedAt === "string" &&
+              !Number.isNaN(Date.parse(ctx.annualPlanUpdatedAt)) &&
+              ctx.annualPlanUpdatedAt > since;
+
+            // Só exportamos alunos que tenham aulas alteradas.
+            if (lessons.length === 0) return null;
+
+            const result: PartialLessonTransfer["schoolYears"][number]["students"][number] = {
+              studentId: ctx.studentId,
+              lessons,
+            };
+
+            if (planChanged) {
+              result.annualPlan = ctx.annualPlan;
+              result.annualPlanUpdatedAt = ctx.annualPlanUpdatedAt;
+
+                // Inclui os elementos do plano que não existem
+                // no destino? Isso será decidido na importação.
+                // Para já, exportamos os elementos do plano
+                // disponíveis na biblioteca de origem.
+              const planIds = new Set(
+                ctx.annualPlan.map((entry) => entry.libraryItemId),
+                );
+
+              result.libraryItems = state.library.filter(
+                (item) => planIds.has(item.id),
+              );
+            }
+
+            return result;
+          })
+          .filter(
+          (
+                ctx,
+            ): ctx is NonNullable<typeof ctx> => ctx !== null,
+            ),
+      }))
+      .filter((year) => year.students.length > 0);
 
     const lessonCount = schoolYears.reduce(
-        (total, year) =>
+      (total, year) =>
         total +
         year.students.reduce(
-            (yearTotal, ctx) => yearTotal + ctx.lessons.length,
-            0,
+          (yearTotal, ctx) => yearTotal + ctx.lessons.length,
+          0,
         ),
         0,
     );
 
+    const planCount = schoolYears.reduce(
+      (total, year) =>
+        total +
+        year.students.filter(
+          (ctx) => ctx.annualPlan !== undefined,
+        ).length,
+      0,
+    );
+
     if (lessonCount === 0) {
-        setMessage("Não foram encontradas aulas alteradas após essa data.");
-        return;
+      setMessage("Não foram encontradas aulas alteradas após essa data.");
+      return;
     }
 
-    try {
-        await navigator.clipboard.writeText(
-        JSON.stringify(transfer, null, 2),
-        );
-        setMessage(`${lessonCount} aulas copiadas para o clipboard.`);
-    } catch {
-        setMessage("Não foi possível copiar os dados.");
-    }
+    const transfer: PartialLessonTransfer = {
+      app: APP_ID,
+      transferType: "partial-lessons",
+      version: EXPORT_VERSION,
+      exportedAt: new Date().toISOString(),
+      since,
+      schoolYears,
     };
+
+    try {
+      await navigator.clipboard.writeText(
+        JSON.stringify(transfer, null, 2),
+      );
+
+      setMessage(
+        `${lessonCount} aulas e ${planCount} planos anuais copiados para o clipboard.`,
+      );
+    } catch {
+      setMessage("Não foi possível copiar os dados.");
+    }
+  };
 
 
   const handleImport = () => {
@@ -346,67 +445,170 @@ function Definicoes() {
     setMessage("Dados importados com sucesso.");
   };
 
-  const confirmPartialImport = () => {
+  
+const confirmPartialImport = () => {
   if (!pendingPartialImport) return;
 
   const transfer = pendingPartialImport;
 
-  update((current) => ({
-    ...current,
-    schoolYears: current.schoolYears.map((year) => {
+  // Calcular os planos que serão efetivamente atualizados.
+  const plansToApply: {
+    yearId: string;
+    studentId: string;
+  }[] = [];
+
+  const libraryIdsToAdd = new Set<string>();
+
+  for (const incomingYear of transfer.schoolYears) {
+    const localYear = state.schoolYears.find(
+      (year) => year.id === incomingYear.id,
+    );
+
+    if (!localYear) continue;
+
+    for (const incomingStudent of incomingYear.students) {
+      const localStudent = localYear.students.find(
+        (student) => student.studentId === incomingStudent.studentId,
+      );
+
+      if (!localStudent) continue;
+
+      const incomingPlan = incomingStudent.annualPlan;
+      const incomingPlanDate = incomingStudent.annualPlanUpdatedAt;
+
+      const shouldApplyPlan =
+        incomingPlan !== undefined &&
+        incomingPlanDate !== undefined &&
+        (
+          localStudent.annualPlanUpdatedAt === undefined ||
+          Date.parse(incomingPlanDate) >
+            Date.parse(localStudent.annualPlanUpdatedAt)
+        );
+
+      if (!shouldApplyPlan) continue;
+
+      plansToApply.push({
+        yearId: incomingYear.id,
+        studentId: incomingStudent.studentId,
+      });
+
+      for (const item of incomingStudent.libraryItems ?? []) {
+        const existsLocally = state.library.some(
+          (localItem) => localItem.id === item.id,
+        );
+
+        if (!existsLocally) {
+          libraryIdsToAdd.add(item.id);
+        }
+      }
+    }
+  }
+
+  const appliedPlanCount = plansToApply.length;
+  const addedLibraryCount = libraryIdsToAdd.size;
+
+  update((current) => {
+    const schoolYears = current.schoolYears.map((year) => {
       const incomingYear = transfer.schoolYears.find(
         (item) => item.id === year.id,
       );
 
-      if (!incomingYear) return year;
+        if (!incomingYear) return year;
 
-      return {
-        ...year,
-        students: year.students.map((student) => {
-          const incomingStudent = incomingYear.students.find(
-            (item) => item.studentId === student.studentId,
-          );
+        return {
+          ...year,
+          students: year.students.map((student) => {
+            const incomingStudent = incomingYear.students.find(
+              (item) => item.studentId === student.studentId,
+            );
 
-          if (!incomingStudent) return student;
+            if (!incomingStudent) return student;
 
-          const incomingLessons = incomingStudent.lessons;
+          // Manter a lógica das aulas já testada.
           const incomingIds = new Set(
-            incomingLessons.map((lesson) => lesson.id),
+            incomingStudent.lessons.map((lesson) => lesson.id),
           );
 
-          return {
+          let nextStudent = {
             ...student,
             lessons: [
               ...student.lessons.filter(
                 (lesson) => !incomingIds.has(lesson.id),
               ),
-              ...incomingLessons,
-            ],
-          };
-        }),
-      };
-    }),
-  }));
+              ...incomingStudent.lessons,
+              ],
+            };
 
-  const lessonCount = transfer.schoolYears.reduce(
-    (total, year) =>
+            const shouldApplyPlan = plansToApply.some(
+            (plan) =>
+              plan.yearId === year.id &&
+              plan.studentId === student.studentId,
+            );
+
+            if (shouldApplyPlan) {
+              nextStudent = {
+                ...nextStudent,
+              annualPlan: incomingStudent.annualPlan!,
+              annualPlanUpdatedAt:
+                incomingStudent.annualPlanUpdatedAt!,
+              };
+            }
+
+            return nextStudent;
+          }),
+        };
+      });
+
+      const existingLibraryIds = new Set(
+        current.library.map((item) => item.id),
+      );
+
+      const libraryItemsToAdd: LibraryItem[] = [];
+
+      for (const year of transfer.schoolYears) {
+        for (const incomingStudent of year.students) {
+         const shouldApplyPlan = plansToApply.some(
+          (plan) =>
+            plan.yearId === year.id &&
+            plan.studentId === incomingStudent.studentId,
+          );
+
+          if (!shouldApplyPlan) continue;
+
+          for (const item of incomingStudent.libraryItems ?? []) {
+            if (!existingLibraryIds.has(item.id)) {
+              existingLibraryIds.add(item.id);
+              libraryItemsToAdd.push(item);
+            }
+          }
+        }
+      }
+
+      return {
+        ...current,
+        schoolYears,
+        library: [...current.library, ...libraryItemsToAdd],
+      };
+    });
+
+    const lessonCount = transfer.schoolYears.reduce(
+      (total, year) =>
       total +
       year.students.reduce(
-        (studentTotal, student) =>
-          studentTotal + student.lessons.length,
-        0,
-      ),
-    0,
+    (sum, student) => sum + student.lessons.length,
+      0,
+     ),
+  0
   );
 
-  setPendingPartialImport(null);
-  setShowImport(false);
-  setImportText("");
-  setImportError("");
-  setMessage(
-    `Importação concluída: ${lessonCount} aulas atualizadas ou acrescentadas.`,
-  );
-};
+    setPendingPartialImport(null);
+    setShowImport(false);
+    setImportText("");
+    setImportError("");
+    setMessage(
+      `Importação concluída: ${lessonCount} aulas atualizadas ou acrescentadas, ${appliedPlanCount} planos atualizados e ${addedLibraryCount} elementos da biblioteca acrescentados.`,
+    );
+  };
 
   const cancelBackupImport = () => {
     setPendingImport(null);

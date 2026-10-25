@@ -59,6 +59,7 @@ export interface YearStudent {
   schedules: Schedule[];
   created: boolean;
   annualPlan: PlanEntry[];
+  annualPlanUpdatedAt?: string;
   lessons: Lesson[];
 }
 
