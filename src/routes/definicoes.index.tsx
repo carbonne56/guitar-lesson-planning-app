@@ -1,15 +1,10 @@
-
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Copy, Download, Users } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Copy, Download, Users, Pencil, Trash2, Check, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { AppState, Lesson, PlanEntry, LibraryItem } from "@/lib/model";
 import { useStore } from "@/lib/store";
+import { SchoolManager } from "@/components/SchoolManager";
 import {
   applyTeacherScheduleImport,
   parseTeacherScheduleImport,
@@ -68,7 +63,7 @@ function validateBackup(backup: unknown): backup is Backup {
   const state = raw["state"] as Record<string, unknown>;
 
   return (
-    state["version"] === 2 &&
+    (state["version"] === 2 || state["version"] === 3) &&
     Array.isArray(state["students"]) &&
     Array.isArray(state["schoolYears"]) &&
     Array.isArray(state["library"]) &&
@@ -204,6 +199,7 @@ export const Route = createFileRoute("/definicoes/")({
   }),
   component: Definicoes,
 });
+
 
 function Definicoes() {
   const { state, update } = useStore();
@@ -437,7 +433,17 @@ function Definicoes() {
   const confirmBackupImport = () => {
     if (!pendingImport) return;
 
-    update(() => pendingImport);
+    const importedState: AppState = {
+      ...pendingImport,
+      version: 3,
+      schools: pendingImport.schools ?? [],
+      students: pendingImport.students.map((student) => ({
+        ...student,
+        schoolId: student.schoolId ?? null,
+      })),
+    };
+
+    update(() => importedState);
 
     setPendingImport(null);
     setImportText("");
@@ -445,7 +451,6 @@ function Definicoes() {
     setMessage("Dados importados com sucesso.");
   };
 
-  
 const confirmPartialImport = () => {
   if (!pendingPartialImport) return;
 
@@ -680,6 +685,8 @@ const confirmPartialImport = () => {
       <header className="mb-6">
         <h1 className="page-title">Definições</h1>
       </header>
+
+      <SchoolManager />
 
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">

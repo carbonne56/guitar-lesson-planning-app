@@ -69,6 +69,7 @@ export function StudentForm({
   const [name, setName] = useState(student?.name ?? "");
   const [birthDate, setBirthDate] = useState(student?.birthDate ?? "");
   const [grade, setGrade] = useState(ctx?.grade ?? "");
+  const [schoolId, setSchoolId] = useState<string | null>(student?.schoolId ?? null);
   const [schedules, setSchedules] = useState<ScheduleDraft[]>(() => {
     const existing = student?.schedules.map(scheduleToDraft) ?? [];
     return existing.length > 0 ? existing : [emptySchedule()];
@@ -142,6 +143,7 @@ export function StudentForm({
       id,
       name: name.trim(),
       birthDate: birthDate || null,
+      schoolId,
       active,
       schedules: nextSchedules,
     };
@@ -255,6 +257,21 @@ export function StudentForm({
               required
               autoFocus
             />
+                    </Field>
+
+          <Field label="Local de ensino">
+            <select
+              className="field"
+              value={schoolId ?? ""}
+              onChange={(e) => setSchoolId(e.target.value || null)}
+            >
+              <option value="">Sem local atribuído</option>
+              {state.schools.map((school) => (
+                <option key={school.id} value={school.id}>
+                  {school.name}
+                </option>
+              ))}
+            </select>
           </Field>
 
           <div className="grid grid-cols-2 gap-3">

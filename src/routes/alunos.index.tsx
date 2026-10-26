@@ -27,21 +27,74 @@ function Alunos() {
   const year = activeYear(state);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<SortKey>("name");
+  const [schoolSortIndex, setSchoolSortIndex] = useState<number | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const rows = useMemo(() => {
     const nq = q.trim().toLowerCase();
-    return state.students
-      .filter((s) => (showInactive || s.active) && s.name.toLowerCase().includes(nq))
-      .map((s) => ({ s, age: ageFrom(s.birthDate), grade: yearContext(year, s.id)?.grade ?? "" }))
-      .sort((a, b) => {
-        if (sort === "age") return (a.age ?? 999) - (b.age ?? 999) || a.s.name.localeCompare(b.s.name, "pt");
-        if (sort === "grade")
-          return a.grade.localeCompare(b.grade, "pt", { numeric: true }) || a.s.name.localeCompare(b.s.name, "pt");
-        return a.s.name.localeCompare(b.s.name, "pt");
+
+    const filtered = state.students
+      .filter(
+        (s) =>
+          (showInactive || s.active) &&
+          s.name.toLowerCase().includes(nq),
+      )
+      .map((s) => ({
+        s,
+        age: ageFrom(s.birthDate),
+        grade: yearContext(year, s.id)?.grade ?? "",
+      }));
+
+    if (schoolSortIndex !== null) {
+      const schoolIds = [
+        ...state.schools.map((school) => school.id),
+        null,
+      ];
+
+      const offset = schoolSortIndex % schoolIds.length;
+      const orderedSchoolIds = [
+        ...schoolIds.slice(offset),
+        ...schoolIds.slice(0, offset),
+      ];
+
+      return filtered.sort((a, b) => {
+        const aIndex = orderedSchoolIds.indexOf(a.s.schoolId ?? null);
+        const bIndex = orderedSchoolIds.indexOf(b.s.schoolId ?? null);
+
+        return (
+          aIndex - bIndex ||
+          a.s.name.localeCompare(b.s.name, "pt")
+        );
       });
-  }, [state.students, year, q, sort, showInactive]);
+    }
+
+    return filtered.sort((a, b) => {
+      if (sort === "age") {
+        return (
+          (a.age ?? 999) - (b.age ?? 999) ||
+          a.s.name.localeCompare(b.s.name, "pt")
+        );
+      }
+
+      if (sort === "grade") {
+        return (
+          a.grade.localeCompare(b.grade, "pt", { numeric: true }) ||
+          a.s.name.localeCompare(b.s.name, "pt")
+        );
+      }
+
+      return a.s.name.localeCompare(b.s.name, "pt");
+    });
+  }, [
+    state.students,
+    state.schools,
+    year,
+    q,
+    sort,
+    showInactive,
+    schoolSortIndex,
+  ]);
 
   const toggleActive = (id: string) =>
     update((s) => ({ ...s, students: s.students.map((x) => (x.id === id ? { ...x, active: !x.active } : x)) }));
@@ -58,16 +111,43 @@ function Alunos() {
       <div className="mb-3 space-y-2">
         <input className="field" placeholder="Procurar por nome…" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {(["name", "grade", "age"] as const).map((k) => (
               <button
                 key={k}
-                onClick={() => setSort(k)}
-                className={sort === k ? "chip bg-accent text-accent-foreground" : "chip"}
+                onClick={() => {
+                  setSort(k);
+                  setSchoolSortIndex(null);
+                }}
+                className={
+                  schoolSortIndex === null && sort === k
+                    ? "chip bg-accent text-accent-foreground"
+                    : "chip"
+                }
               >
                 {{ name: "Nome", grade: "Grau", age: "Idade" }[k]}
               </button>
             ))}
+
+            {state.schools.length > 0 && (
+              <button
+                onClick={() => {
+                  setSchoolSortIndex((current) =>
+                    current === null
+                      ? 0
+                      : (current + 1) % (state.schools.length + 1),
+                  );
+                }}
+                className={
+                  schoolSortIndex !== null
+                    ? "chip bg-accent text-accent-foreground"
+                    : "chip"
+                }
+                title="Alternar o local de ensino que aparece primeiro"
+              >
+                Local de ensino
+              </button>
+            )}
           </div>
           <label className="flex items-center gap-2 text-muted-foreground">
             <input type="checkbox" className="size-4 accent-primary" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
@@ -78,7 +158,17 @@ function Alunos() {
 
       <ul className="surface divide-y">
         {rows.map(({ s, age, grade }) => (
-          <li key={s.id} className={`flex items-center gap-3 px-4 py-2.5 ${s.active ? "" : "opacity-55"}`}>
+          <li
+            key={s.id}
+            className={`flex items-center gap-3 px-4 py-2.5 ${
+              s.active ? "" : "opacity-55"
+            }`}
+            style={{
+              backgroundColor:
+                state.schools.find((school) => school.id === s.schoolId)?.color ??
+                "transparent",
+            }}
+          >
             <Link
               to="/alunos/$studentId"
               params={{ studentId: s.id }}

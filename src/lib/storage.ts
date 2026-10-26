@@ -3,7 +3,7 @@ import type { AppState, Lesson, Schedule } from "./model";
 import { createSeed } from "./seed";
 
 const KEY = "guitarra-aulas:v1";
-const DATA_VERSION = 2;
+const DATA_VERSION = 3;
 
 function migrateLesson(lesson: Lesson, baselineTimestamp: string): Lesson {
   const raw = lesson as unknown as Record<string, unknown>;
@@ -104,9 +104,40 @@ function migrateV1ToV2(
 
   return {
     ...raw,
-    version: DATA_VERSION,
+    version: 2,
     students,
     schoolYears,
+  };
+}
+/**
+ * Migração V2 → V3:
+ * acrescenta a lista de locais de ensino e a associação opcional
+ * de cada aluno a um local.
+ */
+function migrateV2ToV3(
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
+  const students = Array.isArray(raw["students"])
+    ? raw["students"].map((entry) => {
+        if (!entry || typeof entry !== "object") return entry;
+
+        const student = entry as Record<string, unknown>;
+
+        return {
+          ...student,
+          schoolId:
+            typeof student["schoolId"] === "string"
+              ? student["schoolId"]
+              : null,
+        };
+      })
+    : [];
+
+  return {
+    ...raw,
+    version: 3,
+    students,
+    schools: Array.isArray(raw["schools"]) ? raw["schools"] : [],
   };
 }
 
@@ -125,6 +156,11 @@ function migrateState(state: AppState): AppState {
   return {
     ...state,
     version: DATA_VERSION,
+    schools: state.schools ?? [],
+    students: state.students.map((student) => ({
+      ...student,
+      schoolId: student.schoolId ?? null,
+    })),
     library: [...state.library, ...newLibraryItems],
     schoolYears: state.schoolYears.map((year) => ({
       ...year,
@@ -161,6 +197,10 @@ export function loadState(): AppState {
 
     if (data["version"] === 1) {
       data = migrateV1ToV2(data);
+    }
+
+    if (data["version"] === 2) {
+      data = migrateV2ToV3(data);
     }
 
     if (data["version"] !== DATA_VERSION) {

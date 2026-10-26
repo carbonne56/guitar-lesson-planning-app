@@ -8,11 +8,17 @@ export interface Schedule {
   duration: number; // minutes
 }
 
+export interface School {
+  id: string;
+  name: string;
+  color: string;
+}
 export interface Student {
   id: string;
   name: string;
   birthDate: ISODate | null;
   active: boolean; // only source of truth for active status
+  schoolId: string | null;
   schedules: Schedule[];
 }
 
@@ -103,6 +109,7 @@ export interface SchoolYear {
 export interface AppState {
   version: 2;
   students: Student[];
+  schools: School[];
   schoolYears: SchoolYear[];
   library: LibraryItem[];
   settings: {
