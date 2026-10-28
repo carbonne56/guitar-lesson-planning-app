@@ -106,12 +106,63 @@ export interface SchoolYear {
   students: YearStudent[];
 }
 
+export type ReportDimensionId = string;
+
+export interface ReportFormulationOption {
+  id: string;
+  label: string;
+  summary: string;
+  text: string;
+  active: boolean;
+}
+
+export interface ReportTopic {
+  id: string;
+  title: string;
+  active: boolean;
+  options: ReportFormulationOption[];
+}
+
+export interface ReportDimension {
+  id: ReportDimensionId;
+  title: string;
+  active: boolean;
+  topics: ReportTopic[];
+}
+
+export interface ReportCatalog {
+  dimensions: ReportDimension[];
+}
+
+export interface SelectedReportFormulation {
+  dimensionId: ReportDimensionId;
+  topicId: string;
+  optionId: string;
+  topicTitle: string;
+  optionLabel: string;
+  text: string;
+}
+
+export interface StudentReport {
+  id: string;
+  name: string;
+  studentId: string;
+  schoolYearId: string;
+  period: 1 | 2;
+  createdAt: string;
+  updatedAt: string;
+  selections: SelectedReportFormulation[];
+  finalText: string;
+}
+
 export interface AppState {
-  version: 2;
+  version: 4;
   students: Student[];
   schools: School[];
   schoolYears: SchoolYear[];
   library: LibraryItem[];
+  reportCatalog: ReportCatalog;
+  studentReports: StudentReport[];
   settings: {
     activeSchoolYearId: string | null;
   };

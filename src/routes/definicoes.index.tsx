@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Copy, Download, Users, Pencil, Trash2, Check, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -63,7 +63,7 @@ function validateBackup(backup: unknown): backup is Backup {
   const state = raw["state"] as Record<string, unknown>;
 
   return (
-    (state["version"] === 2 || state["version"] === 3) &&
+    (state["version"] === 2 || state["version"] === 3 || state["version"] === 4) &&
     Array.isArray(state["students"]) &&
     Array.isArray(state["schoolYears"]) &&
     Array.isArray(state["library"]) &&
@@ -72,10 +72,7 @@ function validateBackup(backup: unknown): backup is Backup {
   );
 }
 
-
-function validatePartialLessonTransfer(
-  value: unknown,
-): value is PartialLessonTransfer {
+function validatePartialLessonTransfer(value: unknown): value is PartialLessonTransfer {
   if (!value || typeof value !== "object") return false;
 
   const raw = value as Record<string, unknown>;
@@ -97,10 +94,7 @@ function validatePartialLessonTransfer(
 
     const yearData = year as Record<string, unknown>;
 
-    if (
-      typeof yearData["id"] !== "string" ||
-      !Array.isArray(yearData["students"])
-    ) {
+    if (typeof yearData["id"] !== "string" || !Array.isArray(yearData["students"])) {
       return false;
     }
 
@@ -109,28 +103,23 @@ function validatePartialLessonTransfer(
 
       const studentData = student as Record<string, unknown>;
 
-      if (
-        typeof studentData["studentId"] !== "string" ||
-        !Array.isArray(studentData["lessons"])
-      ) {
+      if (typeof studentData["studentId"] !== "string" || !Array.isArray(studentData["lessons"])) {
         return false;
       }
 
-      const validLessons = studentData["lessons"].every(
-        (lesson: unknown) => {
-          if (!lesson || typeof lesson !== "object") return false;
+      const validLessons = studentData["lessons"].every((lesson: unknown) => {
+        if (!lesson || typeof lesson !== "object") return false;
 
-          const item = lesson as Record<string, unknown>;
+        const item = lesson as Record<string, unknown>;
 
-          return (
-            typeof item["id"] === "string" &&
-            typeof item["date"] === "string" &&
-            typeof item["time"] === "string" &&
-            typeof item["updatedAt"] === "string" &&
-            !Number.isNaN(Date.parse(item["updatedAt"] as string))
-          );
-        },
-      );
+        return (
+          typeof item["id"] === "string" &&
+          typeof item["date"] === "string" &&
+          typeof item["time"] === "string" &&
+          typeof item["updatedAt"] === "string" &&
+          !Number.isNaN(Date.parse(item["updatedAt"] as string))
+        );
+      });
 
       if (!validLessons) return false;
 
@@ -142,8 +131,7 @@ function validatePartialLessonTransfer(
             (entry: unknown) =>
               !!entry &&
               typeof entry === "object" &&
-              typeof (entry as Record<string, unknown>)["libraryItemId"] ===
-                "string",
+              typeof (entry as Record<string, unknown>)["libraryItemId"] === "string",
           )
         ) {
           return false;
@@ -151,9 +139,7 @@ function validatePartialLessonTransfer(
 
         if (
           typeof studentData["annualPlanUpdatedAt"] !== "string" ||
-          Number.isNaN(
-            Date.parse(studentData["annualPlanUpdatedAt"] as string),
-          )
+          Number.isNaN(Date.parse(studentData["annualPlanUpdatedAt"] as string))
         ) {
           return false;
         }
@@ -167,8 +153,7 @@ function validatePartialLessonTransfer(
                 typeof item === "object" &&
                 typeof (item as Record<string, unknown>)["id"] === "string" &&
                 typeof (item as Record<string, unknown>)["name"] === "string" &&
-                typeof (item as Record<string, unknown>)["category"] ===
-                  "string",
+                typeof (item as Record<string, unknown>)["category"] === "string",
             ))
         ) {
           return false;
@@ -200,7 +185,6 @@ export const Route = createFileRoute("/definicoes/")({
   component: Definicoes,
 });
 
-
 function Definicoes() {
   const { state, update } = useStore();
 
@@ -219,13 +203,10 @@ function Definicoes() {
   // Importação de horários do teacher-schedule.
   const [scheduleText, setScheduleText] = useState("");
   const [includeWaiting, setIncludeWaiting] = useState(false);
-  const [scheduleData, setScheduleData] =
-    useState<TeacherScheduleImport | null>(null);
-  const [schedulePreview, setSchedulePreview] =
-    useState<TeacherScheduleImportPreview | null>(null);
+  const [scheduleData, setScheduleData] = useState<TeacherScheduleImport | null>(null);
+  const [schedulePreview, setSchedulePreview] = useState<TeacherScheduleImportPreview | null>(null);
   const [scheduleError, setScheduleError] = useState("");
-  const [scheduleResult, setScheduleResult] =
-    useState<TeacherScheduleImportResult | null>(null);
+  const [scheduleResult, setScheduleResult] = useState<TeacherScheduleImportResult | null>(null);
   const [confirmScheduleImport, setConfirmScheduleImport] = useState(false);
 
   const activeYearId = state.settings.activeSchoolYearId;
@@ -294,45 +275,29 @@ function Definicoes() {
               result.annualPlan = ctx.annualPlan;
               result.annualPlanUpdatedAt = ctx.annualPlanUpdatedAt;
 
-                // Inclui os elementos do plano que não existem
-                // no destino? Isso será decidido na importação.
-                // Para já, exportamos os elementos do plano
-                // disponíveis na biblioteca de origem.
-              const planIds = new Set(
-                ctx.annualPlan.map((entry) => entry.libraryItemId),
-                );
+              // Inclui os elementos do plano que não existem
+              // no destino? Isso será decidido na importação.
+              // Para já, exportamos os elementos do plano
+              // disponíveis na biblioteca de origem.
+              const planIds = new Set(ctx.annualPlan.map((entry) => entry.libraryItemId));
 
-              result.libraryItems = state.library.filter(
-                (item) => planIds.has(item.id),
-              );
+              result.libraryItems = state.library.filter((item) => planIds.has(item.id));
             }
 
             return result;
           })
-          .filter(
-          (
-                ctx,
-            ): ctx is NonNullable<typeof ctx> => ctx !== null,
-            ),
+          .filter((ctx): ctx is NonNullable<typeof ctx> => ctx !== null),
       }))
       .filter((year) => year.students.length > 0);
 
     const lessonCount = schoolYears.reduce(
       (total, year) =>
-        total +
-        year.students.reduce(
-          (yearTotal, ctx) => yearTotal + ctx.lessons.length,
-          0,
-        ),
-        0,
+        total + year.students.reduce((yearTotal, ctx) => yearTotal + ctx.lessons.length, 0),
+      0,
     );
 
     const planCount = schoolYears.reduce(
-      (total, year) =>
-        total +
-        year.students.filter(
-          (ctx) => ctx.annualPlan !== undefined,
-        ).length,
+      (total, year) => total + year.students.filter((ctx) => ctx.annualPlan !== undefined).length,
       0,
     );
 
@@ -351,96 +316,91 @@ function Definicoes() {
     };
 
     try {
-      await navigator.clipboard.writeText(
-        JSON.stringify(transfer, null, 2),
-      );
+      await navigator.clipboard.writeText(JSON.stringify(transfer, null, 2));
 
-      setMessage(
-        `${lessonCount} aulas e ${planCount} planos anuais copiados para o clipboard.`,
-      );
+      setMessage(`${lessonCount} aulas e ${planCount} planos anuais copiados para o clipboard.`);
     } catch {
       setMessage("Não foi possível copiar os dados.");
     }
   };
 
-
   const handleImport = () => {
-  setImportError("");
+    setImportError("");
 
-  let parsed: unknown;
+    let parsed: unknown;
 
-  try {
-    parsed = JSON.parse(importText);
-  } catch {
-    setImportError("O texto não contém JSON válido.");
-    return;
-  }
-
-  if (
-    parsed &&
-    typeof parsed === "object" &&
-    "transferType" in parsed &&
-    parsed.transferType === "partial-lessons"
-  ) {
-    if (!validatePartialLessonTransfer(parsed)) {
-      setImportError("A transferência parcial não tem um formato válido.");
+    try {
+      parsed = JSON.parse(importText);
+    } catch {
+      setImportError("O texto não contém JSON válido.");
       return;
     }
 
-    // Verificar se todos os anos e alunos existem no destino.
-    for (const year of parsed.schoolYears) {
-      const localYear = state.schoolYears.find(
-        (item) => item.id === year.id,
-      );
-
-      if (!localYear) {
-        setImportError(
-          `O ano letivo "${year.id}" não existe nesta aplicação. A importação foi cancelada.`,
-        );
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      "transferType" in parsed &&
+      parsed.transferType === "partial-lessons"
+    ) {
+      if (!validatePartialLessonTransfer(parsed)) {
+        setImportError("A transferência parcial não tem um formato válido.");
         return;
       }
 
-      for (const student of year.students) {
-        const localStudent = localYear.students.find(
-          (item) => item.studentId === student.studentId,
-        );
+      // Verificar se todos os anos e alunos existem no destino.
+      for (const year of parsed.schoolYears) {
+        const localYear = state.schoolYears.find((item) => item.id === year.id);
 
-        if (!localStudent) {
+        if (!localYear) {
           setImportError(
-            `O aluno "${student.studentId}" não existe no ano letivo "${year.id}". A importação foi cancelada.`,
+            `O ano letivo "${year.id}" não existe nesta aplicação. A importação foi cancelada.`,
           );
           return;
         }
+
+        for (const student of year.students) {
+          const localStudent = localYear.students.find(
+            (item) => item.studentId === student.studentId,
+          );
+
+          if (!localStudent) {
+            setImportError(
+              `O aluno "${student.studentId}" não existe no ano letivo "${year.id}". A importação foi cancelada.`,
+            );
+            return;
+          }
+        }
       }
+
+      setPendingImport(null);
+      setPendingPartialImport(parsed);
+      return;
     }
 
-    setPendingImport(null);
-    setPendingPartialImport(parsed);
-    return;
-  }
+    if (!validateBackup(parsed)) {
+      setImportError(
+        "O ficheiro não é uma cópia de segurança válida nem uma transferência parcial reconhecida.",
+      );
+      return;
+    }
 
-  if (!validateBackup(parsed)) {
-    setImportError(
-      "O ficheiro não é uma cópia de segurança válida nem uma transferência parcial reconhecida.",
-    );
-    return;
-  }
-
-  setPendingPartialImport(null);
-  setPendingImport(parsed.state);
-};
+    setPendingPartialImport(null);
+    setPendingImport(parsed.state);
+  };
 
   const confirmBackupImport = () => {
     if (!pendingImport) return;
 
     const importedState: AppState = {
       ...pendingImport,
-      version: 3,
+      version: 4,
       schools: pendingImport.schools ?? [],
       students: pendingImport.students.map((student) => ({
         ...student,
         schoolId: student.schoolId ?? null,
       })),
+      reportCatalog: pendingImport.reportCatalog ?? createSeed().reportCatalog,
+      studentReports: pendingImport.studentReports ?? [],
     };
 
     update(() => importedState);
@@ -451,72 +411,63 @@ function Definicoes() {
     setMessage("Dados importados com sucesso.");
   };
 
-const confirmPartialImport = () => {
-  if (!pendingPartialImport) return;
+  const confirmPartialImport = () => {
+    if (!pendingPartialImport) return;
 
-  const transfer = pendingPartialImport;
+    const transfer = pendingPartialImport;
 
-  // Calcular os planos que serão efetivamente atualizados.
-  const plansToApply: {
-    yearId: string;
-    studentId: string;
-  }[] = [];
+    // Calcular os planos que serão efetivamente atualizados.
+    const plansToApply: {
+      yearId: string;
+      studentId: string;
+    }[] = [];
 
-  const libraryIdsToAdd = new Set<string>();
+    const libraryIdsToAdd = new Set<string>();
 
-  for (const incomingYear of transfer.schoolYears) {
-    const localYear = state.schoolYears.find(
-      (year) => year.id === incomingYear.id,
-    );
+    for (const incomingYear of transfer.schoolYears) {
+      const localYear = state.schoolYears.find((year) => year.id === incomingYear.id);
 
-    if (!localYear) continue;
+      if (!localYear) continue;
 
-    for (const incomingStudent of incomingYear.students) {
-      const localStudent = localYear.students.find(
-        (student) => student.studentId === incomingStudent.studentId,
-      );
-
-      if (!localStudent) continue;
-
-      const incomingPlan = incomingStudent.annualPlan;
-      const incomingPlanDate = incomingStudent.annualPlanUpdatedAt;
-
-      const shouldApplyPlan =
-        incomingPlan !== undefined &&
-        incomingPlanDate !== undefined &&
-        (
-          localStudent.annualPlanUpdatedAt === undefined ||
-          Date.parse(incomingPlanDate) >
-            Date.parse(localStudent.annualPlanUpdatedAt)
+      for (const incomingStudent of incomingYear.students) {
+        const localStudent = localYear.students.find(
+          (student) => student.studentId === incomingStudent.studentId,
         );
 
-      if (!shouldApplyPlan) continue;
+        if (!localStudent) continue;
 
-      plansToApply.push({
-        yearId: incomingYear.id,
-        studentId: incomingStudent.studentId,
-      });
+        const incomingPlan = incomingStudent.annualPlan;
+        const incomingPlanDate = incomingStudent.annualPlanUpdatedAt;
 
-      for (const item of incomingStudent.libraryItems ?? []) {
-        const existsLocally = state.library.some(
-          (localItem) => localItem.id === item.id,
-        );
+        const shouldApplyPlan =
+          incomingPlan !== undefined &&
+          incomingPlanDate !== undefined &&
+          (localStudent.annualPlanUpdatedAt === undefined ||
+            Date.parse(incomingPlanDate) > Date.parse(localStudent.annualPlanUpdatedAt));
 
-        if (!existsLocally) {
-          libraryIdsToAdd.add(item.id);
+        if (!shouldApplyPlan) continue;
+
+        plansToApply.push({
+          yearId: incomingYear.id,
+          studentId: incomingStudent.studentId,
+        });
+
+        for (const item of incomingStudent.libraryItems ?? []) {
+          const existsLocally = state.library.some((localItem) => localItem.id === item.id);
+
+          if (!existsLocally) {
+            libraryIdsToAdd.add(item.id);
+          }
         }
       }
     }
-  }
 
-  const appliedPlanCount = plansToApply.length;
-  const addedLibraryCount = libraryIdsToAdd.size;
+    const appliedPlanCount = plansToApply.length;
+    const addedLibraryCount = libraryIdsToAdd.size;
 
-  update((current) => {
-    const schoolYears = current.schoolYears.map((year) => {
-      const incomingYear = transfer.schoolYears.find(
-        (item) => item.id === year.id,
-      );
+    update((current) => {
+      const schoolYears = current.schoolYears.map((year) => {
+        const incomingYear = transfer.schoolYears.find((item) => item.id === year.id);
 
         if (!incomingYear) return year;
 
@@ -529,33 +480,26 @@ const confirmPartialImport = () => {
 
             if (!incomingStudent) return student;
 
-          // Manter a lógica das aulas já testada.
-          const incomingIds = new Set(
-            incomingStudent.lessons.map((lesson) => lesson.id),
-          );
+            // Manter a lógica das aulas já testada.
+            const incomingIds = new Set(incomingStudent.lessons.map((lesson) => lesson.id));
 
-          let nextStudent = {
-            ...student,
-            lessons: [
-              ...student.lessons.filter(
-                (lesson) => !incomingIds.has(lesson.id),
-              ),
-              ...incomingStudent.lessons,
+            let nextStudent = {
+              ...student,
+              lessons: [
+                ...student.lessons.filter((lesson) => !incomingIds.has(lesson.id)),
+                ...incomingStudent.lessons,
               ],
             };
 
             const shouldApplyPlan = plansToApply.some(
-            (plan) =>
-              plan.yearId === year.id &&
-              plan.studentId === student.studentId,
+              (plan) => plan.yearId === year.id && plan.studentId === student.studentId,
             );
 
             if (shouldApplyPlan) {
               nextStudent = {
                 ...nextStudent,
-              annualPlan: incomingStudent.annualPlan!,
-              annualPlanUpdatedAt:
-                incomingStudent.annualPlanUpdatedAt!,
+                annualPlan: incomingStudent.annualPlan!,
+                annualPlanUpdatedAt: incomingStudent.annualPlanUpdatedAt!,
               };
             }
 
@@ -564,18 +508,14 @@ const confirmPartialImport = () => {
         };
       });
 
-      const existingLibraryIds = new Set(
-        current.library.map((item) => item.id),
-      );
+      const existingLibraryIds = new Set(current.library.map((item) => item.id));
 
       const libraryItemsToAdd: LibraryItem[] = [];
 
       for (const year of transfer.schoolYears) {
         for (const incomingStudent of year.students) {
-         const shouldApplyPlan = plansToApply.some(
-          (plan) =>
-            plan.yearId === year.id &&
-            plan.studentId === incomingStudent.studentId,
+          const shouldApplyPlan = plansToApply.some(
+            (plan) => plan.yearId === year.id && plan.studentId === incomingStudent.studentId,
           );
 
           if (!shouldApplyPlan) continue;
@@ -598,13 +538,9 @@ const confirmPartialImport = () => {
 
     const lessonCount = transfer.schoolYears.reduce(
       (total, year) =>
-      total +
-      year.students.reduce(
-    (sum, student) => sum + student.lessons.length,
+        total + year.students.reduce((sum, student) => sum + student.lessons.length, 0),
       0,
-     ),
-  0
-  );
+    );
 
     setPendingPartialImport(null);
     setShowImport(false);
@@ -685,7 +621,24 @@ const confirmPartialImport = () => {
       <header className="mb-6">
         <h1 className="page-title">Definições</h1>
       </header>
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Relatórios de avaliação
+        </h2>
 
+        <Link
+          to="/definicoes/catalogo-relatorios"
+          className="surface flex items-center justify-between gap-3 px-4 py-4 transition-colors hover:bg-muted/50"
+        >
+          <div>
+            <h3 className="font-medium">Catálogo de formulações</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Editar os tópicos, os resumos e os textos dos relatórios.
+            </p>
+          </div>
+          <Pencil className="size-5 shrink-0 text-muted-foreground" />
+        </Link>
+      </section>
       <SchoolManager />
 
       <section>
@@ -697,16 +650,12 @@ const confirmPartialImport = () => {
           <div className="px-4 py-4">
             <h3 className="font-medium">Exportar e importar dados</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Guarda ou transfere todos os dados da aplicação entre
-              dispositivos. A importação substitui os dados atuais.
+              Guarda ou transfere todos os dados da aplicação entre dispositivos. A importação
+              substitui os dados atuais.
             </p>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleExport}
-              >
+              <button type="button" className="btn-primary" onClick={handleExport}>
                 <Copy className="size-4" />
                 Exportar
               </button>
@@ -763,16 +712,14 @@ const confirmPartialImport = () => {
             <div>
               <h3 className="font-medium">Importar do teacher-schedule</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Cola aqui o JSON exportado da aplicação de horários. Os
-                alunos e horários serão integrados no ano letivo ativo, sem
-                substituir os restantes dados.
+                Cola aqui o JSON exportado da aplicação de horários. Os alunos e horários serão
+                integrados no ano letivo ativo, sem substituir os restantes dados.
               </p>
             </div>
           </div>
 
           <p className="mt-4 text-sm">
-            Ano letivo ativo:{" "}
-            <strong>{activeYear?.name ?? "Nenhum selecionado"}</strong>
+            Ano letivo ativo: <strong>{activeYear?.name ?? "Nenhum selecionado"}</strong>
           </p>
 
           <label className="mt-4 flex items-start gap-2 text-sm">
@@ -780,14 +727,9 @@ const confirmPartialImport = () => {
               type="checkbox"
               className="mt-1"
               checked={includeWaiting}
-              onChange={(event) =>
-                handleIncludeWaitingChange(event.target.checked)
-              }
+              onChange={(event) => handleIncludeWaitingChange(event.target.checked)}
             />
-            <span>
-              Incluir também os alunos que estão na área de espera, sem
-              horário
-            </span>
+            <span>Incluir também os alunos que estão na área de espera, sem horário</span>
           </label>
 
           <textarea
@@ -817,46 +759,29 @@ const confirmPartialImport = () => {
               </p>
 
               <ul className="mt-3 space-y-1 text-sm">
-                <li>
-                  Alunos abrangidos: {schedulePreview.totalPeople}
-                </li>
+                <li>Alunos abrangidos: {schedulePreview.totalPeople}</li>
                 <li>Novos alunos: {schedulePreview.newStudents}</li>
-                <li>
-                  Alunos já existentes: {schedulePreview.existingStudents}
-                </li>
-                <li>
-                  Alunos com horário: {schedulePreview.scheduledPeople}
-                </li>
+                <li>Alunos já existentes: {schedulePreview.existingStudents}</li>
+                <li>Alunos com horário: {schedulePreview.scheduledPeople}</li>
                 <li>Horários a importar: {schedulePreview.schedules}</li>
-                <li>
-                  Alunos sem horário a incluir: {schedulePreview.waitingPeople}
-                </li>
+                <li>Alunos sem horário a incluir: {schedulePreview.waitingPeople}</li>
               </ul>
 
               <p className="mt-3 text-sm text-muted-foreground">
-                Os alunos que não constam do JSON não serão alterados. As
-                aulas existentes e os respetivos conteúdos serão preservados
-                sempre que possível.
+                Os alunos que não constam do JSON não serão alterados. As aulas existentes e os
+                respetivos conteúdos serão preservados sempre que possível.
               </p>
             </div>
           )}
 
           {scheduleResult && (
-            <div
-              role="status"
-              className="mt-4 rounded-md border p-4 text-sm"
-            >
+            <div role="status" className="mt-4 rounded-md border p-4 text-sm">
               <h3 className="font-medium">Importação concluída</h3>
               <ul className="mt-2 space-y-1">
                 <li>Novos alunos: {scheduleResult.importedStudents}</li>
-                <li>
-                  Alunos atualizados: {scheduleResult.updatedStudents}
-                </li>
+                <li>Alunos atualizados: {scheduleResult.updatedStudents}</li>
                 <li>Horários importados: {scheduleResult.importedSchedules}</li>
-                <li>
-                  Alunos importados sem horário:{" "}
-                  {scheduleResult.importedWithoutSchedule}
-                </li>
+                <li>Alunos importados sem horário: {scheduleResult.importedWithoutSchedule}</li>
               </ul>
             </div>
           )}
@@ -882,11 +807,7 @@ const confirmPartialImport = () => {
             )}
 
             {(scheduleText || scheduleResult || scheduleError) && (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={resetScheduleImport}
-              >
+              <button type="button" className="btn-secondary" onClick={resetScheduleImport}>
                 Limpar
               </button>
             )}
@@ -925,11 +846,7 @@ const confirmPartialImport = () => {
             </p>
           )}
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setShowImport(false)}
-            >
+            <button type="button" className="btn-secondary" onClick={() => setShowImport(false)}>
               Cancelar
             </button>
 
@@ -976,7 +893,10 @@ const confirmPartialImport = () => {
           )}
 
           <div className="flex justify-end gap-2">
-            <button type="button" className="btn-secondary" onClick={() => {
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
                 setPendingImport(null);
                 setPendingPartialImport(null);
               }}
@@ -984,11 +904,10 @@ const confirmPartialImport = () => {
               Cancelar
             </button>
 
-            <button type="button" className="btn-primary" onClick={
-                pendingPartialImport
-                  ? confirmPartialImport
-                  : confirmBackupImport
-              }
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={pendingPartialImport ? confirmPartialImport : confirmBackupImport}
             >
               Importar
             </button>
@@ -998,40 +917,35 @@ const confirmPartialImport = () => {
 
       <Dialog open={confirmScheduleImport} onOpenChange={setConfirmScheduleImport}>
         <DialogContent className="flex max-h-[85dvh] flex-col overflow-hidden">
-            <DialogHeader className="shrink-0">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Confirmar importação de horários</DialogTitle>
-            </DialogHeader>
+          </DialogHeader>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             <p className="text-sm text-muted-foreground">
-                Serão integrados {schedulePreview?.totalPeople ?? 0} alunos no
-                ano letivo ativo. Os alunos que não constam do JSON não serão
-                alterados. Esta operação não substitui a cópia de segurança nem
-                gera automaticamente aulas para alunos novos.
+              Serão integrados {schedulePreview?.totalPeople ?? 0} alunos no ano letivo ativo. Os
+              alunos que não constam do JSON não serão alterados. Esta operação não substitui a
+              cópia de segurança nem gera automaticamente aulas para alunos novos.
             </p>
 
             {/* Mantém aqui a lista de alunos que já tens no diálogo, se existir. */}
-            </div>
+          </div>
 
-            <div className="flex shrink-0 justify-end gap-2 border-t pt-4">
+          <div className="flex shrink-0 justify-end gap-2 border-t pt-4">
             <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setConfirmScheduleImport(false)}
+              type="button"
+              className="btn-secondary"
+              onClick={() => setConfirmScheduleImport(false)}
             >
-                Cancelar
+              Cancelar
             </button>
 
-            <button
-                type="button"
-                className="btn-primary"
-                onClick={confirmScheduleImportAction}
-            >
-                Importar horários
+            <button type="button" className="btn-primary" onClick={confirmScheduleImportAction}>
+              Importar horários
             </button>
-            </div>
+          </div>
         </DialogContent>
-        </Dialog>
+      </Dialog>
     </main>
   );
 }

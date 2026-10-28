@@ -1,52 +1,31 @@
-
 import type { AppState, Lesson, Schedule } from "./model";
 import { createSeed } from "./seed";
 
 const KEY = "guitarra-aulas:v1";
-const DATA_VERSION = 3;
+const DATA_VERSION = 4;
 
 function migrateLesson(lesson: Lesson, baselineTimestamp: string): Lesson {
   const raw = lesson as unknown as Record<string, unknown>;
 
   return {
     ...lesson,
-    objectives:
-      typeof raw["objectives"] === "string"
-        ? raw["objectives"]
-        : "",
-    summary:
-      typeof raw["summary"] === "string"
-        ? raw["summary"]
-        : "",
-    objectiveLibraryItemIds:
-      Array.isArray(raw["objectiveLibraryItemIds"])
-        ? raw["objectiveLibraryItemIds"].filter(
-            (id): id is string => typeof id === "string",
-          )
-        : [],
-    summaryLibraryItemIds:
-      Array.isArray(raw["summaryLibraryItemIds"])
-        ? raw["summaryLibraryItemIds"].filter(
-            (id): id is string => typeof id === "string",
-          )
-        : [],
+    objectives: typeof raw["objectives"] === "string" ? raw["objectives"] : "",
+    summary: typeof raw["summary"] === "string" ? raw["summary"] : "",
+    objectiveLibraryItemIds: Array.isArray(raw["objectiveLibraryItemIds"])
+      ? raw["objectiveLibraryItemIds"].filter((id): id is string => typeof id === "string")
+      : [],
+    summaryLibraryItemIds: Array.isArray(raw["summaryLibraryItemIds"])
+      ? raw["summaryLibraryItemIds"].filter((id): id is string => typeof id === "string")
+      : [],
     updatedAt:
-      typeof raw["updatedAt"] === "string" &&
-      !Number.isNaN(Date.parse(raw["updatedAt"]))
+      typeof raw["updatedAt"] === "string" && !Number.isNaN(Date.parse(raw["updatedAt"]))
         ? raw["updatedAt"]
         : baselineTimestamp,
   };
 }
 
-
 function migrateSchedule(raw: unknown): Schedule[] {
-  if (
-    raw &&
-    typeof raw === "object" &&
-    "weekday" in raw &&
-    "time" in raw &&
-    "duration" in raw
-  ) {
+  if (raw && typeof raw === "object" && "weekday" in raw && "time" in raw && "duration" in raw) {
     return [raw as Schedule];
   }
 
@@ -58,9 +37,7 @@ function migrateSchedule(raw: unknown): Schedule[] {
  * converte schedule para schedules, tanto nos alunos
  * permanentes como nos contextos dos anos letivos.
  */
-function migrateV1ToV2(
-  raw: Record<string, unknown>,
-): Record<string, unknown> {
+function migrateV1ToV2(raw: Record<string, unknown>): Record<string, unknown> {
   const students = Array.isArray(raw["students"])
     ? raw["students"].map((entry) => {
         if (!entry || typeof entry !== "object") return entry;
@@ -114,9 +91,7 @@ function migrateV1ToV2(
  * acrescenta a lista de locais de ensino e a associação opcional
  * de cada aluno a um local.
  */
-function migrateV2ToV3(
-  raw: Record<string, unknown>,
-): Record<string, unknown> {
+function migrateV2ToV3(raw: Record<string, unknown>): Record<string, unknown> {
   const students = Array.isArray(raw["students"])
     ? raw["students"].map((entry) => {
         if (!entry || typeof entry !== "object") return entry;
@@ -125,10 +100,7 @@ function migrateV2ToV3(
 
         return {
           ...student,
-          schoolId:
-            typeof student["schoolId"] === "string"
-              ? student["schoolId"]
-              : null,
+          schoolId: typeof student["schoolId"] === "string" ? student["schoolId"] : null,
         };
       })
     : [];
@@ -141,17 +113,29 @@ function migrateV2ToV3(
   };
 }
 
+function migrateV3ToV4(raw: Record<string, unknown>): Record<string, unknown> {
+  const seed = createSeed();
+
+  return {
+    ...raw,
+    version: 4,
+    reportCatalog:
+      raw["reportCatalog"] &&
+      typeof raw["reportCatalog"] === "object" &&
+      Array.isArray((raw["reportCatalog"] as Record<string, unknown>)["dimensions"])
+        ? raw["reportCatalog"]
+        : seed.reportCatalog,
+    studentReports: Array.isArray(raw["studentReports"]) ? raw["studentReports"] : [],
+  };
+}
+
 function migrateState(state: AppState): AppState {
   const seed = createSeed();
   const baselineTimestamp = new Date().toISOString();
 
-  const existingLibraryIds = new Set(
-    state.library.map((item) => item.id),
-  );
+  const existingLibraryIds = new Set(state.library.map((item) => item.id));
 
-  const newLibraryItems = seed.library.filter(
-    (item) => !existingLibraryIds.has(item.id),
-  );
+  const newLibraryItems = seed.library.filter((item) => !existingLibraryIds.has(item.id));
 
   return {
     ...state,
@@ -162,14 +146,14 @@ function migrateState(state: AppState): AppState {
       schoolId: student.schoolId ?? null,
     })),
     library: [...state.library, ...newLibraryItems],
+    reportCatalog: state.reportCatalog,
+    studentReports: state.studentReports,
     schoolYears: state.schoolYears.map((year) => ({
       ...year,
       students: year.students.map((ctx) => ({
         ...ctx,
 
-        lessons: ctx.lessons.map((lesson) =>
-          migrateLesson(lesson, baselineTimestamp),
-        ),
+        lessons: ctx.lessons.map((lesson) => migrateLesson(lesson, baselineTimestamp)),
       })),
     })),
   };
@@ -187,7 +171,7 @@ export function loadState(): AppState {
   }
 
   try {
-    let raw: unknown = JSON.parse(stored);
+    const raw: unknown = JSON.parse(stored);
 
     if (!raw || typeof raw !== "object") {
       throw new Error("Dados guardados inválidos.");
@@ -203,6 +187,10 @@ export function loadState(): AppState {
       data = migrateV2ToV3(data);
     }
 
+    if (data["version"] === 3) {
+      data = migrateV3ToV4(data);
+    }
+
     if (data["version"] !== DATA_VERSION) {
       throw new Error("Versão de dados não suportada.");
     }
@@ -213,10 +201,7 @@ export function loadState(): AppState {
 
     return migratedState;
   } catch (error) {
-    console.error(
-      "Não foi possível carregar os dados guardados:",
-      error,
-    );
+    console.error("Não foi possível carregar os dados guardados:", error);
 
     throw error;
   }

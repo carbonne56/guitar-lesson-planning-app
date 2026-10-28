@@ -16,6 +16,7 @@ import { Route as AlunosIndexRouteImport } from './routes/alunos.index'
 import { Route as AlunosStudentIdRouteImport } from './routes/alunos.$studentId'
 import { Route as AulasLessonIdRouteImport } from './routes/aulas.$lessonId'
 import { Route as DefinicoesIndexRouteImport } from './routes/definicoes.index'
+import { Route as DefinicoesCatalogoRelatoriosRouteImport } from './routes/definicoes.catalogo-relatorios'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,12 @@ const DefinicoesIndexRoute = DefinicoesIndexRouteImport.update({
   path: '/definicoes/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DefinicoesCatalogoRelatoriosRoute =
+  DefinicoesCatalogoRelatoriosRouteImport.update({
+    id: '/definicoes/catalogo-relatorios',
+    path: '/definicoes/catalogo-relatorios',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/calendario': typeof CalendarioRoute
   '/alunos/$studentId': typeof AlunosStudentIdRoute
   '/aulas/$lessonId': typeof AulasLessonIdRoute
+  '/definicoes/catalogo-relatorios': typeof DefinicoesCatalogoRelatoriosRoute
   '/alunos/': typeof AlunosIndexRoute
   '/definicoes/': typeof DefinicoesIndexRoute
 }
@@ -68,6 +76,7 @@ export interface FileRoutesByTo {
   '/calendario': typeof CalendarioRoute
   '/alunos/$studentId': typeof AlunosStudentIdRoute
   '/aulas/$lessonId': typeof AulasLessonIdRoute
+  '/definicoes/catalogo-relatorios': typeof DefinicoesCatalogoRelatoriosRoute
   '/alunos': typeof AlunosIndexRoute
   '/definicoes': typeof DefinicoesIndexRoute
 }
@@ -78,6 +87,7 @@ export interface FileRoutesById {
   '/calendario': typeof CalendarioRoute
   '/alunos/$studentId': typeof AlunosStudentIdRoute
   '/aulas/$lessonId': typeof AulasLessonIdRoute
+  '/definicoes/catalogo-relatorios': typeof DefinicoesCatalogoRelatoriosRoute
   '/alunos/': typeof AlunosIndexRoute
   '/definicoes/': typeof DefinicoesIndexRoute
 }
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/alunos/$studentId'
     | '/aulas/$lessonId'
+    | '/definicoes/catalogo-relatorios'
     | '/alunos/'
     | '/definicoes/'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +109,7 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/alunos/$studentId'
     | '/aulas/$lessonId'
+    | '/definicoes/catalogo-relatorios'
     | '/alunos'
     | '/definicoes'
   id:
@@ -107,6 +119,7 @@ export interface FileRouteTypes {
     | '/calendario'
     | '/alunos/$studentId'
     | '/aulas/$lessonId'
+    | '/definicoes/catalogo-relatorios'
     | '/alunos/'
     | '/definicoes/'
   fileRoutesById: FileRoutesById
@@ -117,6 +130,7 @@ export interface RootRouteChildren {
   CalendarioRoute: typeof CalendarioRoute
   AlunosStudentIdRoute: typeof AlunosStudentIdRoute
   AulasLessonIdRoute: typeof AulasLessonIdRoute
+  DefinicoesCatalogoRelatoriosRoute: typeof DefinicoesCatalogoRelatoriosRoute
   AlunosIndexRoute: typeof AlunosIndexRoute
   DefinicoesIndexRoute: typeof DefinicoesIndexRoute
 }
@@ -172,6 +186,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DefinicoesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/definicoes/catalogo-relatorios': {
+      id: '/definicoes/catalogo-relatorios'
+      path: '/definicoes/catalogo-relatorios'
+      fullPath: '/definicoes/catalogo-relatorios'
+      preLoaderRoute: typeof DefinicoesCatalogoRelatoriosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -181,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarioRoute: CalendarioRoute,
   AlunosStudentIdRoute: AlunosStudentIdRoute,
   AulasLessonIdRoute: AulasLessonIdRoute,
+  DefinicoesCatalogoRelatoriosRoute: DefinicoesCatalogoRelatoriosRoute,
   AlunosIndexRoute: AlunosIndexRoute,
   DefinicoesIndexRoute: DefinicoesIndexRoute,
 }

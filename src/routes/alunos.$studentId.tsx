@@ -6,9 +6,11 @@ import { LessonCard } from "@/components/LessonCard";
 import { LibrarySearch } from "@/components/LibrarySearch";
 import { StudentForm } from "@/components/StudentForm";
 import { WEEKDAYS, WEEKDAYS_SHORT, ageFrom, formatShort, todayISO, weekdayOf } from "@/lib/dates";
-import { newId } from "@/lib/model";
+import { newId, type StudentReport } from "@/lib/model";
 import { activeYear, getStudent, lessonStats, sortLessons, yearContext } from "@/lib/selectors";
 import { mapCtx, useStore } from "@/lib/store";
+import { StudentReports } from "@/components/StudentReports";
+import { ReportEditor } from "@/components/ReportEditor";
 import {
   Dialog,
   DialogContent,
@@ -39,9 +41,16 @@ function StudentPage() {
   const [extraDate, setExtraDate] = useState("");
   const [extraTime, setExtraTime] = useState("16:00");
   const [extraDuration, setExtraDuration] = useState(45);
+
+  const [editingReport, setEditingReport] = useState<StudentReport | null>(null);
+  const [creatingReport, setCreatingReport] = useState(false);
+
   const student = getStudent(state, studentId);
   if (!student) throw notFound();
   const year = activeYear(state);
+  const studentReports = state.studentReports.filter(
+    (report) => report.studentId === studentId && report.schoolYearId === year?.id,
+  );
   const ctx = yearContext(year, studentId);
   const stats = lessonStats(ctx);
   const age = ageFrom(student.birthDate);
@@ -51,21 +60,19 @@ function StudentPage() {
     event.program.some((entry) => entry.studentId === studentId),
   );
 
-  const normalLessons = lessons.filter(
-  (lesson) => lesson.type === "normal",
-);
+  const normalLessons = lessons.filter((lesson) => lesson.type === "normal");
 
-const nextLessonId = normalLessons
-  .filter((lesson) => {
-    if (lesson.date > todayISO()) return true;
-    if (lesson.date < todayISO()) return false;
-    return lesson.time >= new Date().toTimeString().slice(0, 5);
-  })
-  .sort((a, b) => {
-    const dateTimeA = `${a.date}T${a.time}`;
-    const dateTimeB = `${b.date}T${b.time}`;
-    return dateTimeA.localeCompare(dateTimeB);
-  })[0]?.id;
+  const nextLessonId = normalLessons
+    .filter((lesson) => {
+      if (lesson.date > todayISO()) return true;
+      if (lesson.date < todayISO()) return false;
+      return lesson.time >= new Date().toTimeString().slice(0, 5);
+    })
+    .sort((a, b) => {
+      const dateTimeA = `${a.date}T${a.time}`;
+      const dateTimeB = `${b.date}T${b.time}`;
+      return dateTimeA.localeCompare(dateTimeB);
+    })[0]?.id;
 
   const timeline = [
     ...lessons.map((lesson) => ({
@@ -185,20 +192,22 @@ const nextLessonId = normalLessons
           <div>
             <h1 className="page-title">{student.name}</h1>
             <div className="mt-0.5 text-sm text-muted-foreground">
-              {[age != null && `${age} anos`, ctx?.grade && `${ctx.grade} grau`, !student.active && "Inativo"]
+              {[
+                age != null && `${age} anos`,
+                ctx?.grade && `${ctx.grade} grau`,
+                !student.active && "Inativo",
+              ]
                 .filter(Boolean)
                 .join(" · ")}
             </div>
             <div className="text-sm text-muted-foreground">
-              {student.schedules.length > 0 ? (
-                student.schedules.map((schedule, index) => (
-                  <div key={`${schedule.weekday}-${schedule.time}-${index}`}>
-                    {WEEKDAYS[schedule.weekday]}, {schedule.time} · {schedule.duration} min
-                  </div>
-                ))
-              ) : (
-                "Sem horário"
-              )}
+              {student.schedules.length > 0
+                ? student.schedules.map((schedule, index) => (
+                    <div key={`${schedule.weekday}-${schedule.time}-${index}`}>
+                      {WEEKDAYS[schedule.weekday]}, {schedule.time} · {schedule.duration} min
+                    </div>
+                  ))
+                : "Sem horário"}
             </div>
           </div>
           <button className="btn-ghost" onClick={() => setEditing(true)}>
@@ -212,20 +221,48 @@ const nextLessonId = normalLessons
         </dl>
       </header>
 
+      <div className="mb-6">
+        {creatingReport || editingReport ? (
+          <div className="disclosure p-4">
+            <ReportEditor
+              key={editingReport?.id ?? "new-report"}
+              studentId={studentId}
+              schoolYearId={year!.id}
+              report={editingReport}
+              onClose={() => {
+                setCreatingReport(false);
+                setEditingReport(null);
+              }}
+              onSaved={() => {
+                setCreatingReport(false);
+                setEditingReport(null);
+              }}
+            />
+          </div>
+        ) : (
+          <StudentReports
+            reports={studentReports}
+            onCreate={() => {
+              setEditingReport(null);
+              setCreatingReport(true);
+            }}
+            onEdit={(report) => {
+              setCreatingReport(false);
+              setEditingReport(report);
+            }}
+          />
+        )}
+      </div>
+
       <div className="mb-6 grid gap-3 md:grid-cols-2">
         <details className="disclosure">
           <summary>Eventos</summary>
           <ul className="max-h-80 space-y-3 overflow-y-auto px-4 pb-3">
             {(year?.events ?? []).map((e) => {
-              const programEntries = e.program.filter(
-                (entry) => entry.studentId === studentId,
-              );
+              const programEntries = e.program.filter((entry) => entry.studentId === studentId);
 
               const until = lessons.filter(
-                (l) =>
-                  l.type !== "extra" &&
-                  l.date >= today &&
-                  l.date < e.date,
+                (l) => l.type !== "extra" && l.date >= today && l.date < e.date,
               ).length;
 
               return (
@@ -233,24 +270,18 @@ const nextLessonId = normalLessons
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="font-medium">{e.name}</span>
 
-                    <span className="text-xs text-muted-foreground">
-                      {formatShort(e.date)}
-                    </span>
+                    <span className="text-xs text-muted-foreground">{formatShort(e.date)}</span>
                   </div>
 
                   {programEntries.length > 0 ? (
                     <div className="mt-2 space-y-1 border-l-2 border-border pl-3">
                       {programEntries.map((entry) => {
                         const item = state.library.find(
-                          (libraryItem) =>
-                            libraryItem.id === entry.libraryItemId,
+                          (libraryItem) => libraryItem.id === entry.libraryItemId,
                         );
 
                         return (
-                          <div
-                            key={entry.id}
-                            className="flex items-center gap-2 text-sm"
-                          >
+                          <div key={entry.id} className="flex items-center gap-2 text-sm">
                             <span className="flex-1">
                               {item?.name ?? "Elemento removido da biblioteca"}
                             </span>
@@ -273,8 +304,7 @@ const nextLessonId = normalLessons
                                               : {
                                                   ...event,
                                                   program: event.program.filter(
-                                                    (programEntry) =>
-                                                      programEntry.id !== entry.id,
+                                                    (programEntry) => programEntry.id !== entry.id,
                                                   ),
                                                 },
                                           ),
@@ -305,8 +335,7 @@ const nextLessonId = normalLessons
                       <div className="mt-2 space-y-1 rounded-md bg-muted p-2">
                         {ctx.annualPlan.map((planEntry) => {
                           const item = state.library.find(
-                            (libraryItem) =>
-                              libraryItem.id === planEntry.libraryItemId,
+                            (libraryItem) => libraryItem.id === planEntry.libraryItemId,
                           );
 
                           if (!item) return null;
@@ -365,9 +394,7 @@ const nextLessonId = normalLessons
             })}
 
             {!year?.events.length && (
-              <li className="text-sm text-muted-foreground">
-                Sem eventos neste ano letivo.
-              </li>
+              <li className="text-sm text-muted-foreground">Sem eventos neste ano letivo.</li>
             )}
           </ul>
         </details>
@@ -403,9 +430,7 @@ const nextLessonId = normalLessons
                   update((s) =>
                     mapCtx(s, year.id, studentId, (c) => ({
                       ...c,
-                      annualPlan: c.annualPlan.filter(
-                        (p) => p.libraryItemId !== id,
-                      ),
+                      annualPlan: c.annualPlan.filter((p) => p.libraryItemId !== id),
                       annualPlanUpdatedAt: new Date().toISOString(),
                     })),
                   )
@@ -420,10 +445,7 @@ const nextLessonId = normalLessons
                   update((s) =>
                     mapCtx(s, year.id, studentId, (c) => ({
                       ...c,
-                      annualPlan: [
-                        ...c.annualPlan,
-                        { libraryItemId: item.id },
-                      ],
+                      annualPlan: [...c.annualPlan, { libraryItemId: item.id }],
                       annualPlanUpdatedAt: new Date().toISOString(),
                     })),
                   )
@@ -456,24 +478,18 @@ const nextLessonId = normalLessons
                 {WEEKDAYS_SHORT[weekdayOf(item.event.date)]}, {formatShort(item.event.date)}
               </div>
 
-              <div className="mt-1 font-semibold">
-                {item.event.name}
-              </div>
+              <div className="mt-1 font-semibold">{item.event.name}</div>
 
               <div className="mt-2 space-y-0.5">
                 {item.event.program
                   .filter((entry) => entry.studentId === studentId)
                   .map((entry) => {
                     const libraryItem = state.library.find(
-                      (libraryItem) =>
-                        libraryItem.id === entry.libraryItemId,
+                      (libraryItem) => libraryItem.id === entry.libraryItemId,
                     );
 
                     return (
-                      <div
-                        key={entry.id}
-                        className="text-sm italic"
-                      >
+                      <div key={entry.id} className="text-sm italic">
                         {libraryItem?.name ?? "Elemento removido da biblioteca"}
                       </div>
                     );
@@ -484,7 +500,6 @@ const nextLessonId = normalLessons
         )}
       </div>
 
-            
       {!timeline.length && (
         <p className="text-sm text-muted-foreground">
           Ainda sem aulas ou eventos neste ano letivo.
@@ -507,10 +522,7 @@ const nextLessonId = normalLessons
             Adicionar aula extra
           </button>
 
-          <Dialog
-            open={showExtraDialog}
-            onOpenChange={setShowExtraDialog}
-          >
+          <Dialog open={showExtraDialog} onOpenChange={setShowExtraDialog}>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Adicionar aula extra</DialogTitle>
@@ -547,10 +559,7 @@ const nextLessonId = normalLessons
                   </div>
 
                   <div className="space-y-1">
-                    <label
-                      className="text-sm font-medium"
-                      htmlFor="extra-duration"
-                    >
+                    <label className="text-sm font-medium" htmlFor="extra-duration">
                       Duração
                     </label>
                     <select
@@ -594,11 +603,7 @@ const nextLessonId = normalLessons
         </div>
       )}
 
-
-      {editing && (
-        <StudentForm open onOpenChange={setEditing} student={student} />
-      )}
-
+      {editing && <StudentForm open onOpenChange={setEditing} student={student} />}
     </main>
   );
 }
