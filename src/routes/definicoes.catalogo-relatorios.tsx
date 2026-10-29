@@ -1,13 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Plus, Save } from "lucide-react";
+import { ArrowLeft, Plus, Save, Download } from "lucide-react";
 import { newId } from "@/lib/model";
+
 import type {
   ReportCatalog,
   ReportDimension,
   ReportTopic,
   ReportFormulationOption,
+  StudentReport,
 } from "@/lib/model";
+
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/definicoes/catalogo-relatorios")({
@@ -34,6 +37,7 @@ function CatalogoRelatorios() {
     () => state.reportCatalog.dimensions[0]?.topics[0]?.options[0]?.id ?? "",
   );
   const [message, setMessage] = useState("");
+  const [exportSince, setExportSince] = useState("");
 
   const dimension = draft.dimensions.find((item) => item.id === dimensionId);
   const topic = dimension?.topics.find((item) => item.id === topicId);
@@ -182,54 +186,123 @@ function CatalogoRelatorios() {
   const isComplete = (item: ReportFormulationOption) =>
     Boolean(item.label.trim() && item.summary.trim() && item.text.trim());
 
-  const saveCatalog = () => {
-    const incompleteActive: string[] = [];
+  const prepareCatalogToSave = (): ReportCatalog | null => {
+  const incompleteActive: string[] = [];
 
-    const cleanedDraft: ReportCatalog = {
-      ...draft,
-      dimensions: draft.dimensions.map((entry) => ({
-        ...entry,
-        topics: entry.topics.map((topicEntry) => ({
-          ...topicEntry,
-          options: topicEntry.options.map((optionEntry) => {
-            if (optionEntry.active && !isComplete(optionEntry)) {
-              incompleteActive.push(optionEntry.label.trim() || "Formulação sem nome");
-              return { ...optionEntry, active: false };
-            }
-            return optionEntry;
-          }),
-        })),
+  const cleanedDraft: ReportCatalog = {
+    ...draft,
+    dimensions: draft.dimensions.map((entry) => ({
+      ...entry,
+      topics: entry.topics.map((topicEntry) => ({
+        ...topicEntry,
+        options: topicEntry.options.map((optionEntry) => {
+          if (optionEntry.active && !isComplete(optionEntry)) {
+            incompleteActive.push(
+              optionEntry.label.trim() || "Formulação sem nome",
+            );
+            return { ...optionEntry, active: false };
+          }
+
+          return optionEntry;
+        }),
       })),
-    };
+    })),
+  };
 
-    if (
-      incompleteActive.length > 0 &&
-      !window.confirm(
-        `As seguintes formulações têm pelo menos um campo vazio:\n\n${incompleteActive
-          .map((name) => `• ${name}`)
-          .join(
-            "\n",
-          )}\n\nSe avançar, as alterações serão guardadas e estas formulações ficarão inativas.\n\nSe quiser manter o conteúdo anterior e o estado de ativação anterior, clique em Cancelar.`,
-      )
-    ) {
-      setDraft(structuredClone(state.reportCatalog));
-      setDimensionId(state.reportCatalog.dimensions[0]?.id ?? "");
-      setTopicId(state.reportCatalog.dimensions[0]?.topics[0]?.id ?? "");
-      setOptionId(state.reportCatalog.dimensions[0]?.topics[0]?.options[0]?.id ?? "");
-      setMessage("Edição cancelada. Foi recuperada a versão anteriormente guardada.");
-      return;
-    }
+  if (
+    incompleteActive.length > 0 &&
+    !window.confirm(
+      `As seguintes formulações têm pelo menos um campo vazio:\n\n${incompleteActive
+        .map((name) => `• ${name}`)
+        .join(
+          "\n",
+        )}\n\nSe avançar, as alterações serão guardadas e estas formulações ficarão inativas.\n\nSe quiser manter o conteúdo anterior e o estado de ativação anterior, clique em Cancelar.`,
+    )
+  ) {
+    setDraft(structuredClone(state.reportCatalog));
+    setDimensionId(state.reportCatalog.dimensions[0]?.id ?? "");
+    setTopicId(state.reportCatalog.dimensions[0]?.topics[0]?.id ?? "");
+    setOptionId(
+      state.reportCatalog.dimensions[0]?.topics[0]?.options[0]?.id ?? "",
+    );
+    setMessage(
+      "Edição cancelada. Foi recuperada a versão anteriormente guardada.",
+    );
+    return null;
+  }
+
+  return cleanedDraft;
+};
+
+  const saveCatalog = () => {
+    const cleanedDraft = prepareCatalogToSave();
+    if (!cleanedDraft) return;
 
     update((current) => ({
-      ...current,
-      reportCatalog: cleanedDraft,
+        ...current,
+        reportCatalog: cleanedDraft,
     }));
+
     setDraft(structuredClone(cleanedDraft));
-    setMessage(
-      incompleteActive.length > 0
-        ? "Catálogo guardado. As formulações incompletas ficaram inativas."
-        : "Catálogo guardado com sucesso.",
-    );
+    setMessage("Catálogo guardado com sucesso.");
+    };
+
+    const saveAndExport = async () => {
+    if (!exportSince) {
+        setMessage("Seleciona a data e hora de referência para a exportação.");
+        return;
+    }
+
+    const sinceDate = new Date(exportSince);
+
+    if (Number.isNaN(sinceDate.getTime())) {
+        setMessage("A data de referência não é válida.");
+        return;
+    }
+
+    const cleanedDraft = prepareCatalogToSave();
+    if (!cleanedDraft) return;
+
+    const since = sinceDate.toISOString();
+
+    const studentReports = state.studentReports.filter((report) => {
+        const createdAt = Date.parse(report.createdAt);
+        const updatedAt = Date.parse(report.updatedAt);
+        const referenceTime = Date.parse(since);
+
+        return (
+        (!Number.isNaN(createdAt) && createdAt > referenceTime) ||
+        (!Number.isNaN(updatedAt) && updatedAt > referenceTime)
+        );
+    });
+
+    const transfer = {
+        app: "guitar-lesson-planning",
+        transferType: "reports-and-catalog" as const,
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        since,
+        reportCatalog: cleanedDraft,
+        studentReports,
+    };
+
+    try {
+        await navigator.clipboard.writeText(JSON.stringify(transfer, null, 2));
+
+        update((current) => ({
+        ...current,
+        reportCatalog: cleanedDraft,
+        }));
+
+        setDraft(structuredClone(cleanedDraft));
+        setMessage(
+        `Catálogo guardado e exportado com ${studentReports.length} relatório(s) criado(s) ou editado(s) desde a data de referência.`,
+        );
+    } catch {
+        setMessage(
+        "Não foi possível copiar a transferência. Verifica as permissões da área de transferência.",
+        );
+    }
   };
 
   return (
@@ -462,11 +535,41 @@ function CatalogoRelatorios() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3 border-t pt-4">
-          <button type="button" className="btn-primary" onClick={saveCatalog}>
-            <Save className="size-4" />
-            Guardar catálogo
-          </button>
+        <div className="flex flex-col gap-3 border-t pt-4">
+          <div className="flex flex-col gap-2">
+            <label htmlFor="export-since" className="text-sm font-medium">
+              Exportar relatórios criados ou editados depois de
+            </label>
+
+            <input
+              id="export-since"
+              type="datetime-local"
+              value={exportSince}
+              onChange={(event) => setExportSince(event.target.value)}
+              className="w-full max-w-sm rounded-md border bg-background px-3 py-2 text-sm"
+            />
+
+            <p className="text-sm text-muted-foreground">
+              O catálogo será exportado por inteiro. Os relatórios anteriores à data
+              escolhida não serão incluídos.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className="btn-primary" onClick={saveCatalog}>
+              <Save className="size-4" />
+              Guardar catálogo
+            </button>
+
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={saveAndExport}
+            >
+              <Download className="size-4" />
+              Guardar e exportar
+            </button>
+          </div>
 
           {message && (
             <p role="status" className="text-sm text-muted-foreground">

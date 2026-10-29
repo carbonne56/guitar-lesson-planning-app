@@ -2,7 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Copy, Download, Users, Pencil, Trash2, Check, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { AppState, Lesson, PlanEntry, LibraryItem } from "@/lib/model";
+import type {
+  AppState,
+  Lesson,
+  PlanEntry,
+  LibraryItem,
+  ReportCatalog,
+  StudentReport,
+} from "@/lib/model";
 import { useStore } from "@/lib/store";
 import { SchoolManager } from "@/components/SchoolManager";
 import {
@@ -41,6 +48,16 @@ type PartialLessonTransfer = {
       libraryItems?: LibraryItem[];
     }[];
   }[];
+};
+
+type ReportCatalogTransfer = {
+  app: string;
+  transferType: "reports-and-catalog";
+  version: number;
+  exportedAt: string;
+  since: string;
+  reportCatalog: ReportCatalog;
+  studentReports: StudentReport[];
 };
 
 function validateBackup(backup: unknown): backup is Backup {
@@ -165,6 +182,112 @@ function validatePartialLessonTransfer(value: unknown): value is PartialLessonTr
   });
 }
 
+function validateReportCatalogTransfer(
+  value: unknown,
+): value is ReportCatalogTransfer {
+  if (!value || typeof value !== "object") return false;
+
+  const raw = value as Record<string, unknown>;
+
+  if (
+    raw["app"] !== APP_ID ||
+    raw["transferType"] !== "reports-and-catalog" ||
+    raw["version"] !== EXPORT_VERSION ||
+    typeof raw["exportedAt"] !== "string" ||
+    typeof raw["since"] !== "string" ||
+    Number.isNaN(Date.parse(raw["since"] as string)) ||
+    !raw["reportCatalog"] ||
+    typeof raw["reportCatalog"] !== "object" ||
+    !Array.isArray(raw["studentReports"])
+  ) {
+    return false;
+  }
+
+  const catalog = raw["reportCatalog"] as Record<string, unknown>;
+
+  if (!Array.isArray(catalog["dimensions"])) return false;
+
+  const validCatalog = catalog["dimensions"].every((dimension: unknown) => {
+    if (!dimension || typeof dimension !== "object") return false;
+
+    const dimensionData = dimension as Record<string, unknown>;
+
+    if (
+      typeof dimensionData["id"] !== "string" ||
+      typeof dimensionData["title"] !== "string" ||
+      typeof dimensionData["active"] !== "boolean" ||
+      !Array.isArray(dimensionData["topics"])
+    ) {
+      return false;
+    }
+
+    return dimensionData["topics"].every((topic: unknown) => {
+      if (!topic || typeof topic !== "object") return false;
+
+      const topicData = topic as Record<string, unknown>;
+
+      if (
+        typeof topicData["id"] !== "string" ||
+        typeof topicData["title"] !== "string" ||
+        typeof topicData["active"] !== "boolean" ||
+        !Array.isArray(topicData["options"])
+      ) {
+        return false;
+      }
+
+      return topicData["options"].every((option: unknown) => {
+        if (!option || typeof option !== "object") return false;
+
+        const optionData = option as Record<string, unknown>;
+
+        return (
+          typeof optionData["id"] === "string" &&
+          typeof optionData["label"] === "string" &&
+          typeof optionData["summary"] === "string" &&
+          typeof optionData["text"] === "string" &&
+          typeof optionData["active"] === "boolean"
+        );
+      });
+    });
+  });
+
+  if (!validCatalog) return false;
+
+  return raw["studentReports"].every((report: unknown) => {
+    if (!report || typeof report !== "object") return false;
+
+    const reportData = report as Record<string, unknown>;
+
+    return (
+      typeof reportData["id"] === "string" &&
+      typeof reportData["name"] === "string" &&
+      typeof reportData["studentId"] === "string" &&
+      typeof reportData["schoolYearId"] === "string" &&
+      (reportData["period"] === 1 || reportData["period"] === 2) &&
+      typeof reportData["createdAt"] === "string" &&
+      !Number.isNaN(Date.parse(reportData["createdAt"] as string)) &&
+      typeof reportData["updatedAt"] === "string" &&
+      !Number.isNaN(Date.parse(reportData["updatedAt"] as string)) &&
+      Array.isArray(reportData["selections"]) &&
+      reportData["selections"].every((selection: unknown) => {
+        if (!selection || typeof selection !== "object") return false;
+
+        const selectionData = selection as Record<string, unknown>;
+
+        return (
+          typeof selectionData["dimensionId"] === "string" &&
+          typeof selectionData["topicId"] === "string" &&
+          typeof selectionData["optionId"] === "string" &&
+          typeof selectionData["topicTitle"] === "string" &&
+          typeof selectionData["optionLabel"] === "string" &&
+          typeof selectionData["text"] === "string"
+        );
+      }) &&
+      typeof reportData["finalText"] === "string"
+    );
+  });
+}
+
 export const Route = createFileRoute("/definicoes/")({
   head: () => ({
     meta: [
@@ -209,8 +332,17 @@ function Definicoes() {
   const [scheduleResult, setScheduleResult] = useState<TeacherScheduleImportResult | null>(null);
   const [confirmScheduleImport, setConfirmScheduleImport] = useState(false);
 
+  const [pendingReportTransfer, setPendingReportTransfer] = useState<ReportCatalogTransfer | null>(
+    null,
+  );
+
   const activeYearId = state.settings.activeSchoolYearId;
   const activeYear = state.schoolYears.find((year) => year.id === activeYearId);
+
+  const reportsWithMissingStudents =
+    pendingReportTransfer?.studentReports.filter(
+      (report) => !state.students.some((student) => student.id === report.studentId),
+    ) ?? [];
 
   const handleExport = async () => {
     const backup = {
@@ -335,7 +467,22 @@ function Definicoes() {
       setImportError("O texto não contém JSON válido.");
       return;
     }
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      "transferType" in parsed &&
+      parsed.transferType === "reports-and-catalog"
+    ) {
+      if (!validateReportCatalogTransfer(parsed)) {
+        setImportError("A transferência do catálogo e dos relatórios não tem um formato válido.");
+        return;
+      }
 
+      setPendingImport(null);
+      setPendingPartialImport(null);
+      setPendingReportTransfer(parsed);
+      return;
+    }
     if (
       parsed &&
       typeof parsed === "object" &&
@@ -548,6 +695,49 @@ function Definicoes() {
     setImportError("");
     setMessage(
       `Importação concluída: ${lessonCount} aulas atualizadas ou acrescentadas, ${appliedPlanCount} planos atualizados e ${addedLibraryCount} elementos da biblioteca acrescentados.`,
+    );
+  };
+
+  const confirmReportTransferImport = () => {
+    if (!pendingReportTransfer) return;
+
+    const transfer = pendingReportTransfer;
+
+    const incomingReportsById = new Map(
+      transfer.studentReports.map((report) => [report.id, report]),
+    );
+
+    update((current) => {
+      const existingIds = new Set(current.studentReports.map((report) => report.id));
+
+      const mergedReports = current.studentReports.map(
+        (report) => incomingReportsById.get(report.id) ?? report,
+      );
+
+      const newReports = transfer.studentReports.filter(
+        (report) => !existingIds.has(report.id),
+      );
+
+      return {
+        ...current,
+        reportCatalog: transfer.reportCatalog,
+        studentReports: [...mergedReports, ...newReports],
+      };
+    });
+
+    const incomingExistingCount = transfer.studentReports.filter((report) =>
+      state.studentReports.some((existing) => existing.id === report.id),
+    ).length;
+
+    const incomingNewCount = transfer.studentReports.length - incomingExistingCount;
+
+    setPendingReportTransfer(null);
+    setShowImport(false);
+    setImportText("");
+    setImportError("");
+
+    setMessage(
+      `Importação concluída: catálogo substituído, ${incomingNewCount} relatório(s) acrescentado(s) e ${incomingExistingCount} atualizado(s).`,
     );
   };
 
@@ -863,55 +1053,103 @@ function Definicoes() {
       </Dialog>
 
       <Dialog
-        open={pendingImport !== null || pendingPartialImport !== null}
+        open={
+          pendingImport !== null || pendingPartialImport !== null || pendingReportTransfer !== null
+        }
         onOpenChange={(open) => {
           if (!open) {
             setPendingImport(null);
             setPendingPartialImport(null);
+            setPendingReportTransfer(null);
           }
         }}
       >
         <DialogContent>
           <DialogTitle>
-            {pendingPartialImport
-              ? "Confirmar importação parcial de aulas"
-              : "Confirmar importação da cópia de segurança"}
+            {pendingReportTransfer
+              ? "Confirmar importação do catálogo e relatórios"
+              : pendingPartialImport
+                ? "Confirmar importação parcial de aulas"
+                : "Confirmar importação da cópia de segurança"}
           </DialogTitle>
 
-          {pendingPartialImport ? (
+          {pendingReportTransfer ? (
+            <>
+              <p>
+                O catálogo atual será substituído integralmente. Serão acrescentados{" "}
+                {
+                  pendingReportTransfer.studentReports.filter(
+                    (report) =>
+                      !state.studentReports.some((existing) => existing.id === report.id),
+                  ).length
+                }{" "}
+                relatórios novos e atualizados{" "}
+                {
+                  pendingReportTransfer.studentReports.filter((report) =>
+                    state.studentReports.some((existing) => existing.id === report.id),
+                  ).length
+                }{" "}
+                relatórios existentes. Os restantes relatórios e os outros dados da
+                aplicação serão preservados.
+              </p>
+
+              {reportsWithMissingStudents.length > 0 && (
+                <p role="alert" className="mt-3 rounded-md border p-3 text-sm">
+                  <strong>Atenção:</strong>{" "}
+                  {reportsWithMissingStudents.length === 1
+                    ? "1 relatório refere-se a um aluno que não existe"
+                    : `${reportsWithMissingStudents.length} relatórios referem-se a alunos que não existem`}{" "}
+                  neste dispositivo. Estes relatórios serão importados normalmente, mas não estarão
+                  disponíveis na página de um aluno até que o aluno correspondente seja adicionado.
+                  Podes continuar a importação; os restantes dados não serão afetados.
+                </p>
+              )}
+            </>
+          ) : pendingPartialImport ? (
             <p>
-              {pendingPartialImport.schoolYears.reduce(
+                {pendingPartialImport.schoolYears.reduce(
                 (total, year) =>
-                  total + year.students.reduce((sum, student) => sum + student.lessons.length, 0),
+                    total +
+                    year.students.reduce(
+                    (sum, student) => sum + student.lessons.length,
+                    0,
+                    ),
                 0,
-              )}{" "}
-              aulas. As aulas correspondentes serão atualizadas e as novas serão acrescentadas. Os
-              restantes dados serão preservados.
+                )}{" "}
+                aulas. As aulas correspondentes serão atualizadas e as novas serão
+                acrescentadas. Os restantes dados serão preservados.
             </p>
-          ) : (
+            ) : (
             <p>Importar estes dados irá substituir os dados atuais da aplicação.</p>
-          )}
+            )}
 
           <div className="flex justify-end gap-2">
             <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => {
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
                 setPendingImport(null);
                 setPendingPartialImport(null);
-              }}
+                setPendingReportTransfer(null);
+                }}
             >
-              Cancelar
+                Cancelar
             </button>
 
             <button
-              type="button"
-              className="btn-primary"
-              onClick={pendingPartialImport ? confirmPartialImport : confirmBackupImport}
+                type="button"
+                className="btn-primary"
+                onClick={
+                pendingReportTransfer
+                    ? confirmReportTransferImport
+                    : pendingPartialImport
+                    ? confirmPartialImport
+                    : confirmBackupImport
+                }
             >
-              Importar
+                Importar
             </button>
-          </div>
+            </div>
         </DialogContent>
       </Dialog>
 
