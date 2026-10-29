@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatLong, formatShort, WEEKDAYS } from "@/lib/dates";
-import { newId } from "@/lib/model";
+import { newId, ISODate } from "@/lib/model";
 import { activeYear } from "@/lib/selectors";
 import { generateLessonsForAllStudents } from "@/lib/lessonGeneration";
 import { useStore } from "@/lib/store";
@@ -24,12 +24,14 @@ export const Route = createFileRoute("/calendario")({
 
 function Calendario() {
   const { state, update } = useStore();
+
   const year = activeYear(state);
   const [creating, setCreating] = useState(false);
   const [confirmingGeneration, setConfirmingGeneration] = useState(false);
   const [addingHoliday, setAddingHoliday] = useState(false);
   const [addingPublicHoliday, setAddingPublicHoliday] = useState(false);
   const [addingEvent, setAddingEvent] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [viewingEventId, setViewingEventId] = useState<string | null>(null);
 
   const generateLessons = () => {
@@ -296,7 +298,15 @@ function Calendario() {
                       >
                         {event.name}
                       </button>
-
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        title="Editar evento"
+                        aria-label={`Editar ${event.name}`}
+                        onClick={() => setEditingEventId(event.id)}
+                      >
+                        <Pencil className="size-4" />
+                      </button>
                       <button
                         className="btn-ghost"
                         title="Eliminar evento"
@@ -418,7 +428,18 @@ function Calendario() {
         <NewPublicHolidayDialog yearId={year.id} onClose={() => setAddingPublicHoliday(false)} />
       )}
       {addingEvent && year && (
-        <NewEventDialog yearId={year.id} onClose={() => setAddingEvent(false)} />
+        <NewEventDialog
+          yearId={year.id}
+          onClose={() => setAddingEvent(false)}
+        />
+      )}
+
+      {editingEventId && year && (
+        <NewEventDialog
+          yearId={year.id}
+          event={year.events.find((event) => event.id === editingEventId)}
+          onClose={() => setEditingEventId(null)}
+        />
       )}
       {viewingEventId && year && (
         <EventProgramDialog
@@ -683,22 +704,25 @@ function NewPublicHolidayDialog({ yearId, onClose }: { yearId: string; onClose: 
   );
 }
 
-function NewEventDialog({ yearId, onClose }: { yearId: string; onClose: () => void }) {
+function NewEventDialog({
+  yearId,
+  event,
+  onClose,
+}: {
+  yearId: string;
+  event?: SchoolEvent;
+  onClose: () => void;
+}) {
   const { update } = useStore();
-  const [name, setName] = useState("");
-  const [date, setDate] = useState("");
+  const [name, setName] = useState(event?.name ?? "");
+  const [date, setDate] = useState(event?.date ?? "");
+
+  const isEditing = Boolean(event);
 
   const save = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim() || !date) return;
-
-    const event = {
-      id: newId("event"),
-      name: name.trim(),
-      date,
-      program: [],
-    };
 
     update((s) => ({
       ...s,
@@ -707,7 +731,25 @@ function NewEventDialog({ yearId, onClose }: { yearId: string; onClose: () => vo
           ? y
           : {
               ...y,
-              events: [...y.events, event],
+              events: isEditing
+                ? y.events.map((item) =>
+                    item.id !== event!.id
+                      ? item
+                      : {
+                          ...item,
+                          name: name.trim(),
+                          date: date as SchoolEvent["date"],
+                        },
+                  )
+                : [
+                    ...y.events,
+                    {
+                      id: newId("event"),
+                      name: name.trim(),
+                      date: date as SchoolEvent["date"],
+                      program: [],
+                    },
+                  ],
             },
       ),
     }));
@@ -719,26 +761,28 @@ function NewEventDialog({ yearId, onClose }: { yearId: string; onClose: () => vo
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Adicionar evento</DialogTitle>
+          <DialogTitle>{isEditing ? "Editar evento" : "Adicionar evento"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={save} className="space-y-3">
-          <input
-            className="field"
-            placeholder="ex.: Audição de Natal"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            autoFocus
-          />
+          <label className="block space-y-1 text-xs text-muted-foreground">
+            Título
+            <input
+              className="field w-full"
+              placeholder="ex.: Audição de Natal"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoFocus
+            />
+          </label>
 
           <label className="block space-y-1 text-xs text-muted-foreground">
             Data
             <input
-              className="field"
+              className="field w-full"
               type="date"
               value={date}
-              min={yearId ? undefined : undefined}
               onChange={(e) => setDate(e.target.value)}
               required
             />
@@ -749,8 +793,8 @@ function NewEventDialog({ yearId, onClose }: { yearId: string; onClose: () => vo
               Cancelar
             </button>
 
-            <button className="btn-primary" disabled={!name.trim() || !date}>
-              Adicionar
+            <button type="submit" className="btn-primary" disabled={!name.trim() || !date}>
+              {isEditing ? "Guardar" : "Adicionar"}
             </button>
           </div>
         </form>
@@ -770,7 +814,6 @@ function EventProgramDialog({
   state: ReturnType<typeof useStore>["state"];
   onClose: () => void;
 }) {
-
   const { update } = useStore();
 
   const event = year.events.find((item) => item.id === eventId);
@@ -792,7 +835,7 @@ function EventProgramDialog({
                   event.name,
                   formatLong(event.date),
                   "",
-                  ...event.program.map((entry, index) => {
+                  ...event.program.map((entry) => {
                     const student = state.students.find(
                       (item) => item.id === entry.studentId,
                     );
@@ -823,24 +866,16 @@ function EventProgramDialog({
         </DialogHeader>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
-          <div className="text-sm text-muted-foreground">
-            {formatLong(event.date)}
-          </div>
+          <div className="text-sm text-muted-foreground">{formatLong(event.date)}</div>
 
           {event.program.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Ainda não há elementos no programa.
-            </p>
+            <p className="text-sm text-muted-foreground">Ainda não há elementos no programa.</p>
           ) : (
             <ol className="surface divide-y">
               {event.program.map((entry, index) => {
-                const student = state.students.find(
-                  (item) => item.id === entry.studentId,
-                );
+                const student = state.students.find((item) => item.id === entry.studentId);
 
-                const libraryItem = state.library.find(
-                  (item) => item.id === entry.libraryItemId,
-                );
+                const libraryItem = state.library.find((item) => item.id === entry.libraryItemId);
 
                 return (
                   <li
@@ -858,13 +893,9 @@ function EventProgramDialog({
                       const draggedId = e.dataTransfer.getData("text/plain");
                       if (!draggedId || draggedId === entry.id) return;
 
-                      const fromIndex = event.program.findIndex(
-                        (item) => item.id === draggedId,
-                      );
+                      const fromIndex = event.program.findIndex((item) => item.id === draggedId);
 
-                      const toIndex = event.program.findIndex(
-                        (item) => item.id === entry.id,
-                      );
+                      const toIndex = event.program.findIndex((item) => item.id === entry.id);
 
                       if (fromIndex === -1 || toIndex === -1) return;
 

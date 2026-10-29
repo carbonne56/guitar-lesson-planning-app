@@ -395,8 +395,8 @@ function Definicoes() {
               !Number.isNaN(Date.parse(ctx.annualPlanUpdatedAt)) &&
               ctx.annualPlanUpdatedAt > since;
 
-            // Só exportamos alunos que tenham aulas alteradas.
-            if (lessons.length === 0) return null;
+            // Só excluímos o aluno quando não há aulas nem plano alterados.
+            if (lessons.length === 0 && !planChanged) return null;
 
             const result: PartialLessonTransfer["schoolYears"][number]["students"][number] = {
               studentId: ctx.studentId,
@@ -429,12 +429,13 @@ function Definicoes() {
     );
 
     const planCount = schoolYears.reduce(
-      (total, year) => total + year.students.filter((ctx) => ctx.annualPlan !== undefined).length,
+      (total, year) =>
+        total + year.students.filter((student) => student.annualPlan !== undefined).length,
       0,
     );
 
-    if (lessonCount === 0) {
-      setMessage("Não foram encontradas aulas alteradas após essa data.");
+    if (lessonCount === 0 && planCount === 0) {
+      setMessage("Não foram encontradas aulas nem planos anuais alterados após essa data.");
       return;
     }
 

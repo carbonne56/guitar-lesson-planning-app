@@ -258,7 +258,9 @@ function StudentPage() {
         <details className="disclosure">
           <summary>Eventos</summary>
           <ul className="max-h-80 space-y-3 overflow-y-auto px-4 pb-3">
-            {(year?.events ?? []).map((e) => {
+            {[...(year?.events ?? [])]
+              .sort((a, b) => a.date.localeCompare(b.date))
+              .map((e) => {
               const programEntries = e.program.filter((entry) => entry.studentId === studentId);
 
               const until = lessons.filter(
